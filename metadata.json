@@ -1,0 +1,6 @@
+{
+  "name": "Property Manager",
+  "description": "Multi-property rental management system for tracking houses, rooms, tenants, and payments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
