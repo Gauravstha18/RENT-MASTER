@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { House, Room, Tenant, Payment } from '../types';
+import { House, Room, Tenant, Payment, ViewState } from '../types';
 import { mockHouses, mockRooms, mockTenants, mockPayments } from '../lib/mockData';
 
 interface AppContextType {
@@ -9,6 +9,12 @@ interface AppContextType {
   payments: Payment[];
   activeHouseId: string | null;
   setActiveHouseId: (id: string | null) => void;
+  
+  // Global View and Actions
+  currentView: ViewState;
+  setCurrentView: (view: ViewState) => void;
+  globalAction: 'onboard' | 'payment' | 'room' | 'meters' | null;
+  setGlobalAction: (action: 'onboard' | 'payment' | 'room' | 'meters' | null) => void;
   
   // Storage operations
   addHouse: (house: Omit<House, 'id'>) => string;
@@ -35,6 +41,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [currentView, setCurrentView] = useState<ViewState>('dashboard');
+  const [globalAction, setGlobalAction] = useState<'onboard' | 'payment' | 'room' | 'meters' | null>(null);
+
   const [houses, setHouses] = useState<House[]>(() => {
     const saved = localStorage.getItem('pm_houses');
     return saved ? JSON.parse(saved) : mockHouses;
@@ -115,6 +124,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       houses, rooms, tenants, payments, activeHouseId, setActiveHouseId,
+      currentView, setCurrentView, globalAction, setGlobalAction,
       addHouse, updateHouse, deleteHouse,
       addRoom, updateRoom, deleteRoom,
       addTenant, updateTenant, deleteTenant,

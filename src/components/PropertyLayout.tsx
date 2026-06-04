@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
-import { Building, Image as ImageIcon, DoorOpen, Plus, Edit2, Trash2, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building, Image as ImageIcon, DoorOpen, Plus, Edit2, Trash2, Info, Search } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
 import { Room } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
 
 export function PropertyLayout() {
-  const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, tenants, getTenantTotalRent } = useAppContext();
+  const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, tenants, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
   
   const currentHouse = houses.find(h => h.id === activeHouseId);
   const houseRooms = rooms.filter(r => r.houseId === activeHouseId);
+
+  // Filters for rooms in current floor
+  const [roomSearch, setRoomSearch] = useState('');
+  const [roomStatusFilter, setRoomStatusFilter] = useState<'all' | 'occupied' | 'vacant'>('all');
 
   // Modal states
   const [isImageUrlModalOpen, setIsImageUrlModalOpen] = useState(false);
@@ -129,6 +133,13 @@ export function PropertyLayout() {
     setIsRoomModalOpen(false); // Close first just in case
     setTimeout(() => setIsRoomModalOpen(true), 10);
   };
+
+  useEffect(() => {
+    if (globalAction === 'room') {
+      openRoomModal();
+      setGlobalAction(null);
+    }
+  }, [globalAction, setGlobalAction]);
 
   const handleRoomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,7 +306,7 @@ export function PropertyLayout() {
                   <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center shrink-0">
                     <div>
                       <h3 className="font-bold text-xl text-slate-800">{activeFloor}</h3>
-                      <p className="text-xs text-slate-400 font-medium">{floorsMap.get(activeFloor)?.length || 0} Rooms</p>
+                      <p className="text-xs text-slate-400 font-medium">{floorsMap.get(activeFloor)?.length || 0} Rooms configured</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button 
@@ -313,37 +324,111 @@ export function PropertyLayout() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Filter panel inside Property Layout */}
+                  <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setRoomStatusFilter('all')}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${roomStatusFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRoomStatusFilter('occupied')}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${roomStatusFilter === 'occupied' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
+                      >
+                        Occupied
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRoomStatusFilter('vacant')}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${roomStatusFilter === 'vacant' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
+                      >
+                        Vacant
+                      </button>
+                    </div>
+
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={roomSearch}
+                        onChange={e => setRoomSearch(e.target.value)}
+                        placeholder="Search by room or tenant..."
+                        className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                      />
+                    </div>
+                  </div>
                   
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 content-start">
-                    {(floorsMap.get(activeFloor) || []).map(room => {
-                    const isOccupied = tenants.some(t => t.roomIds.includes(room.id));
-                    return (
-                      <div 
-                        key={room.id} 
-                        onClick={() => openRoomInfo(room)}
-                        className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 hover:shadow-md transition-all bg-white group flex flex-col justify-between cursor-pointer"
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-center gap-2">
-                            {isOccupied ? (
-                              <div className="w-2 h-2 rounded-full bg-emerald-500" title="Occupied"></div>
-                            ) : (
-                              <div className="w-2 h-2 rounded-full bg-rose-500" title="Vacant"></div>
-                            )}
-                            <span className="font-bold text-slate-800">{room.roomNumber}</span>
+                    {(() => {
+                      const rawRooms = floorsMap.get(activeFloor) || [];
+                      const filteredRooms = rawRooms.filter(room => {
+                        const tenant = tenants.find(t => t.roomIds.includes(room.id));
+                        const isOccupied = !!tenant;
+
+                        const matchesSearch = room.roomNumber.toLowerCase().includes(roomSearch.toLowerCase()) || 
+                          (tenant && tenant.name.toLowerCase().includes(roomSearch.toLowerCase()));
+
+                        const matchesStatus = roomStatusFilter === 'all' || 
+                          (roomStatusFilter === 'occupied' && isOccupied) || 
+                          (roomStatusFilter === 'vacant' && !isOccupied);
+
+                        return matchesSearch && matchesStatus;
+                      });
+
+                      if (filteredRooms.length === 0) {
+                        return (
+                          <div className="col-span-full py-12 text-center text-slate-400 font-medium">
+                            No rooms matching filtered search query found on this floor.
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); openRoomModal(room); }} className="p-1 text-slate-400 hover:text-indigo-600" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                            <button onClick={(e) => { e.stopPropagation(); handleRoomDelete(room.id); }} className="p-1 text-slate-400 hover:text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                        );
+                      }
+
+                      return filteredRooms.map(room => {
+                        const tenant = tenants.find(t => t.roomIds.includes(room.id));
+                        const isOccupied = !!tenant;
+                        return (
+                          <div 
+                            key={room.id} 
+                            onClick={() => openRoomInfo(room)}
+                            className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 hover:shadow-md transition-all bg-white group flex flex-col justify-between cursor-pointer"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                {isOccupied ? (
+                                  <div className="w-2 h-2 rounded-full bg-emerald-500" title="Occupied"></div>
+                                ) : (
+                                  <div className="w-2 h-2 rounded-full bg-rose-500" title="Vacant"></div>
+                                )}
+                                <span className="font-bold text-slate-800">{room.roomNumber}</span>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => { e.stopPropagation(); openRoomModal(room); }} className="p-1 text-slate-400 hover:text-indigo-600" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleRoomDelete(room.id); }} className="p-1 text-slate-400 hover:text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-end border-t border-slate-100 pt-2.5 mt-2">
+                              <div>
+                                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Base Rent</div>
+                                <div className="font-mono font-bold text-slate-800 text-sm">NPR {room.rentAmount}</div>
+                              </div>
+                              {isOccupied && tenant && (
+                                <div className="text-right">
+                                  <span className="text-[10px] text-indigo-600 font-semibold block truncate max-w-[130px]" title={tenant.name}>{tenant.name}</span>
+                                  <span className="text-[9px] text-slate-400 font-semibold block">Joined: {tenant.startDate ? formatWithNepaliDate(tenant.startDate) : 'N/A'}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        
-                        <div className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Base Rent</div>
-                        <div className="font-mono font-bold text-slate-900 text-lg">NPR {room.rentAmount}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      });
+                    })()}
+                  </div>
               </div>
             )}
             </div>

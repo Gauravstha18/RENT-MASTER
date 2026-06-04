@@ -6,6 +6,7 @@ import { Dashboard } from './components/Dashboard';
 import { PropertyLayout } from './components/PropertyLayout';
 import { Occupancy } from './components/Occupancy';
 import { Payments } from './components/Payments';
+import { MobileFAB } from './components/MobileFAB';
 import { ViewState } from './types';
 
 function GlobalHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
@@ -43,7 +44,7 @@ function GlobalFooter() {
 }
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState<ViewState>('dashboard');
+  const { currentView, setCurrentView } = useAppContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -72,6 +73,9 @@ function AppContent() {
         
         <GlobalFooter />
       </main>
+
+      {/* Mobile Floating Action Button Menu overlay */}
+      <MobileFAB />
     </div>
   );
 }

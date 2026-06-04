@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen, MoreVertical } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
 import { Room, Tenant, RentCycle } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
 
 export function Occupancy() {
-  const { houses, rooms, tenants, payments, activeHouseId, updateRoom, addTenant, updateTenant, deleteTenant, getTenantTotalRent } = useAppContext();
+  const { houses, rooms, tenants, payments, activeHouseId, updateRoom, addTenant, updateTenant, deleteTenant, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
   
   const currentHouse = houses.find(h => h.id === activeHouseId);
+
+  // Expanded Room Breakdowns state
+  const [expandedBreakdowns, setExpandedBreakdowns] = useState<Record<string, boolean>>({});
 
   // Tenant Modal State
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
@@ -20,6 +23,7 @@ export function Occupancy() {
   const [customRent, setCustomRent] = useState('');
   const [startDate, setStartDate] = useState(() => getTodayDateStr());
   const [rentCycle, setRentCycle] = useState<RentCycle>('monthly');
+  const [dateOption, setDateOption] = useState<'current' | 'custom'>('current');
 
   // Meter Modal State
   const [meterModalRoom, setMeterModalRoom] = useState<Room | null>(null);
@@ -51,6 +55,18 @@ export function Occupancy() {
   const houseRooms = rooms.filter(r => r.houseId === activeHouseId);
   const houseTenants = tenants.filter(t => t.houseId === activeHouseId);
 
+  useEffect(() => {
+    if (globalAction === 'onboard') {
+      openTenantModal();
+      setGlobalAction(null);
+    } else if (globalAction === 'meters') {
+      if (houseRooms.length > 0) {
+        openMeterModal(houseRooms[0]);
+      }
+      setGlobalAction(null);
+    }
+  }, [globalAction, houseRooms, setGlobalAction]);
+
   // Cross-reference data
   const occupiedRoomIds = new Set<string>();
   const roomToTenantMap = new Map<string, Tenant>();
@@ -80,6 +96,7 @@ export function Occupancy() {
       setCustomRent(tenant.customRentAmount?.toString() || '');
       setStartDate(tenant.startDate || getTodayDateStr());
       setRentCycle(tenant.rentCycle || 'monthly');
+      setDateOption('custom');
     } else {
       setEditingTenant(null);
       setName('');
@@ -89,6 +106,7 @@ export function Occupancy() {
       setCustomRent('');
       setStartDate(getTodayDateStr());
       setRentCycle('monthly');
+      setDateOption('current');
     }
     setIsTenantModalOpen(true);
   };
@@ -106,6 +124,8 @@ export function Occupancy() {
       return;
     }
 
+    const finalStartDate = dateOption === 'current' ? getTodayDateStr() : (startDate || getTodayDateStr());
+
     const payload = {
       houseId: activeHouseId,
       name,
@@ -113,7 +133,7 @@ export function Occupancy() {
       roomIds: selectedRooms,
       rentMode,
       customRentAmount: rentMode === 'manual' ? Number(customRent) : undefined,
-      startDate,
+      startDate: finalStartDate,
       rentCycle
     };
 
@@ -201,13 +221,23 @@ export function Occupancy() {
                       
                       <div className="grid grid-cols-2 gap-2 mt-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <div className="col-span-2 flex justify-between items-center mb-1 border-b border-slate-200 pb-2">
-                          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Utilities</span>
-                          <button 
-                            onClick={() => openMeterModal(room)}
-                            className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded hover:bg-amber-200 transition-colors"
-                          >
-                            Update Meter Readings
-                          </button>
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Utilities &amp; Billing</span>
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => openMeterModal(room)}
+                              className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded hover:bg-amber-200 transition-colors"
+                            >
+                              Update Meter Readings
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedBreakdowns(prev => ({ ...prev, [room.id]: !prev[room.id] }))}
+                              className={`p-1 rounded-md transition-colors ${expandedBreakdowns[room.id] ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}
+                              title="Toggle Details Breakdown"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                         <div>
                           <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Due / {tenant.rentCycle}</p>
@@ -229,6 +259,85 @@ export function Occupancy() {
                             </p>
                           </div>
                         )}
+
+                        {expandedBreakdowns[room.id] && (() => {
+                          const baseRent = tenant.rentMode === 'manual' ? (tenant.customRentAmount || 0) : room.rentAmount;
+                          
+                          let elecUnits = 0;
+                          let elecCost = 0;
+                          const elecRate = currentHouse?.electricityRate || 0;
+                          if (currentHouse?.electricityBillingType === 'unit') {
+                            elecUnits = Math.max(0, (room.currentElectricityReading || 0) - (room.previousElectricityReading || 0));
+                            elecCost = elecUnits * elecRate;
+                          } else if (currentHouse?.electricityBillingType === 'fixed') {
+                            elecCost = elecRate;
+                          }
+
+                          let waterUnits = 0;
+                          let waterCost = 0;
+                          const waterRate = currentHouse?.waterRate || 0;
+                          if (currentHouse?.waterBillingType === 'unit') {
+                            waterUnits = Math.max(0, (room.currentWaterReading || 0) - (room.previousWaterReading || 0));
+                            waterCost = waterUnits * waterRate;
+                          } else if (currentHouse?.waterBillingType === 'fixed') {
+                            waterCost = waterRate;
+                          }
+
+                          const trashCost = currentHouse?.trashCollectionRate || 0;
+                          
+                          const proratedBase = calcArgs ? calcArgs.due : baseRent;
+                          const grandTotalCycle = baseRent + elecCost + waterCost + trashCost;
+                          const grandTotalToday = proratedBase + elecCost + waterCost + trashCost;
+
+                          return (
+                            <div className="col-span-2 mt-3 pt-3 border-t border-dashed border-slate-200 bg-slate-100/60 p-2.5 rounded-lg text-slate-700 text-[11px] space-y-2 animate-in slide-in-from-top-1 duration-200">
+                              <h5 className="font-bold text-[10px] text-indigo-600 uppercase tracking-wider">Billed Amount Breakdown</h5>
+                              
+                              <div className="space-y-1 font-mono">
+                                <div className="flex justify-between items-center">
+                                  <span>Base Rent (Cycle):</span>
+                                  <span className="font-semibold text-slate-900">NPR {baseRent}</span>
+                                </div>
+                                {calcArgs && (
+                                  <div className="flex justify-between items-center text-indigo-600/90 pl-2 border-l border-indigo-200">
+                                    <span>↳ Pro-rated Till Today:</span>
+                                    <span className="font-semibold">NPR {proratedBase}</span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex justify-between items-center">
+                                  <span>Electricity {currentHouse?.electricityBillingType === 'unit' ? `(${elecUnits} units)` : '(Fixed)'}:</span>
+                                  <span className="font-semibold text-slate-900">NPR {elecCost}</span>
+                                </div>
+                                {currentHouse?.electricityBillingType === 'unit' && (
+                                  <div className="text-[9px] text-slate-400 pl-2">
+                                    {room.previousElectricityReading || 0} Prev ➔ {room.currentElectricityReading || 0} Curr @ NPR {elecRate}/u
+                                  </div>
+                                )}
+
+                                <div className="flex justify-between items-center">
+                                  <span>Water {currentHouse?.waterBillingType === 'unit' ? `(${waterUnits} units)` : '(Fixed)'}:</span>
+                                  <span className="font-semibold text-slate-900">NPR {waterCost}</span>
+                                </div>
+                                {currentHouse?.waterBillingType === 'unit' && (
+                                  <div className="text-[9px] text-slate-400 pl-2">
+                                    {room.previousWaterReading || 0} Prev ➔ {room.currentWaterReading || 0} Curr @ NPR {waterRate}/u
+                                  </div>
+                                )}
+
+                                <div className="flex justify-between items-center">
+                                  <span>Trash Fee:</span>
+                                  <span className="font-semibold text-slate-900">NPR {trashCost}</span>
+                                </div>
+                              </div>
+
+                              <div className="border-t border-slate-200 pt-1.5 flex justify-between font-bold text-slate-900">
+                                <span>Grand Total (Today):</span>
+                                <span className="text-indigo-600 font-bold">NPR {grandTotalToday}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   ) : (
@@ -290,11 +399,7 @@ export function Occupancy() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-              <input required type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Rent Cycle</label>
               <select value={rentCycle} onChange={e => setRentCycle(e.target.value as RentCycle)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white">
@@ -303,6 +408,45 @@ export function Occupancy() {
                 <option value="yearly">Yearly</option>
               </select>
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Onboarding / Join Date Option</label>
+              <div className="grid grid-cols-2 gap-2 p-1 border border-slate-200 rounded-lg bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => setDateOption('current')}
+                  className={`py-1.5 px-2 text-xs font-semibold rounded-md transition-all ${dateOption === 'current' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Current Date (Today)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDateOption('custom')}
+                  className={`py-1.5 px-2 text-xs font-semibold rounded-md transition-all ${dateOption === 'custom' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Custom Historic Date
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            {dateOption === 'custom' ? (
+              <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-1">
+                <label className="block text-xs font-bold text-indigo-600 uppercase">Select Custom / Historic Date Joined</label>
+                <input 
+                  type="date" 
+                  value={startDate} 
+                  onChange={e => setStartDate(e.target.value)} 
+                  className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" 
+                />
+                <p className="text-[11px] text-slate-400">Specify when the tenant originally assigned or occupied the room.</p>
+              </div>
+            ) : (
+              <div className="p-3 bg-indigo-50/60 rounded-lg border border-indigo-100/50 text-xs text-indigo-600">
+                Automatically onboarding tenant with today's date (<strong className="font-mono">{getTodayDateStr()}</strong>) as the Join Date.
+              </div>
+            )}
           </div>
 
           <div>
