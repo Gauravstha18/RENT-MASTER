@@ -1,5 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+// --- HARDCODED SUPABASE CREDENTIALS ---
+// Paste your real Supabase project credentials below to embed them directly.
+// This allows the app to load instantly on Vercel without asking for manual input!
+const HARDCODED_SUPABASE_URL = ''; 
+const HARDCODED_SUPABASE_ANON_KEY = '';
+
 // Helper to validate that a URL starts with http:// or https://
 const isValidUrl = (url: string) => {
   try {
@@ -10,11 +16,14 @@ const isValidUrl = (url: string) => {
   }
 };
 
-// Retrieve credentials from environment variables OR localStorage fallback for ease of configuration
+// Retrieve credentials from hardcoded constants OR environment variables OR localStorage fallback
 const getSupabaseCredentials = () => {
   const metaEnv = (import.meta as any).env || {};
   console.log('Vite Node Environment MetaEnv:', metaEnv);
   
+  let hardcodedUrl = (HARDCODED_SUPABASE_URL || '').trim();
+  let hardcodedKey = (HARDCODED_SUPABASE_ANON_KEY || '').trim();
+
   let envUrl = (metaEnv.VITE_SUPABASE_URL || '').trim();
   let envKey = (metaEnv.VITE_SUPABASE_ANON_KEY || '').trim();
 
@@ -48,10 +57,10 @@ const getSupabaseCredentials = () => {
     localKey = localKey.substring(1, localKey.length - 1).trim();
   }
 
-  console.log('Supabase Connection Trial URLs:', { envUrl, localUrl, envKey: envKey ? '***' : '', localKey: localKey ? '***' : '' });
+  console.log('Supabase Connection Trial URLs:', { hardcodedUrl, envUrl, localUrl });
 
-  const finalUrl = (isValidUrl(envUrl) ? envUrl : null) || (isValidUrl(localUrl) ? localUrl : null) || '';
-  const finalKey = finalUrl === envUrl ? envKey : (finalUrl === localUrl ? localKey : '');
+  const finalUrl = (isValidUrl(hardcodedUrl) ? hardcodedUrl : null) || (isValidUrl(envUrl) ? envUrl : null) || (isValidUrl(localUrl) ? localUrl : null) || '';
+  const finalKey = finalUrl === hardcodedUrl ? hardcodedKey : (finalUrl === envUrl ? envKey : (finalUrl === localUrl ? localKey : ''));
 
   console.log('Supabase Connection Selected:', { finalUrl, hasKey: !!finalKey });
 
