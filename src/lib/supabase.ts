@@ -114,6 +114,11 @@ create table if not exists public.houses (
     owner_id uuid references auth.users(id) on delete cascade
 );
 
+-- Add missing columns to existing tables
+alter table public.houses add column if not exists shared_with_emails jsonb default '[]'::jsonb;
+alter table public.houses add column if not exists collaborators jsonb default '[]'::jsonb;
+alter table public.houses add column if not exists owner_email text;
+
 -- Enable RLS
 alter table public.houses enable row level security;
 drop policy if exists "Allow select own houses" on public.houses;

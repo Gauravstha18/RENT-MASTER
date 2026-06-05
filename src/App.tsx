@@ -11,8 +11,9 @@ import { History } from './components/History';
 import { MobileFAB } from './components/MobileFAB';
 import { GlobalDashboard } from './components/GlobalDashboard';
 import { Modal } from './components/Modal';
-import { Home, Users, CreditCard, Building, Archive, ShieldAlert } from 'lucide-react';
+import { Home, Users, CreditCard, Building, Archive, ShieldAlert, CheckCircle2, Copy } from 'lucide-react';
 import { ViewState } from './types';
+import { SUPABASE_SQL_SETUP } from './lib/supabase';
 
 function MobileBottomNav() {
   const { currentView, setCurrentView, activeHouseId } = useAppContext();
@@ -123,12 +124,14 @@ function AppContent() {
     loadingUser, 
     isSandboxMode, 
     requiresDbMigration,
+    setRequiresDbMigration,
     logout,
     houses,
     addHouse,
     addRoom
   } = useAppContext();
   
+  const [copiedSql, setCopiedSql] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   
   // Onboarding first property state
@@ -230,6 +233,17 @@ function AppContent() {
               Property sharing features depend on new database columns. Please run the provided SQL setup script in your Supabase SQL Editor. 
               <br/><span className="font-semibold">Shared properties will not load correctly until this is completed.</span>
             </p>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(SUPABASE_SQL_SETUP);
+                setCopiedSql(true);
+                setTimeout(() => setCopiedSql(false), 2000);
+              }}
+              className="mt-2 bg-white border border-rose-200 text-rose-700 px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 hover:bg-rose-50 transition-colors shadow-sm"
+            >
+              {copiedSql ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedSql ? 'SQL Snippet Copied!' : 'Copy SQL Script'}
+            </button>
           </div>
           <button 
             onClick={() => setRequiresDbMigration(false)}
