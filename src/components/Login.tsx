@@ -172,104 +172,76 @@ export function Login({ onAuthSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row items-center justify-center p-4 sm:p-6 lg:p-8 select-none relative overflow-auto font-sans">
-      {/* Decorative background layout */}
-      <div className="absolute right-0 top-0 opacity-10 pointer-events-none">
-        <Sparkles className="w-96 h-96 text-indigo-400" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 select-none relative overflow-auto font-sans">
+      {/* Decorative ambient background */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.08),transparent_50%)] pointer-events-none" />
+      <div className="absolute right-12 top-12 opacity-5 pointer-events-none">
+        <Sparkles className="w-64 h-64 text-indigo-400" />
       </div>
       
-      <div className="w-full max-w-4xl flex flex-col md:flex-row bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden relative z-10 transition-all duration-300">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden relative z-10 p-6 sm:p-8 transition-all duration-300">
         
-        {/* Supabase connection guide information banner */}
-        <div className="md:w-1/2 bg-slate-950 p-6 sm:p-8 text-white flex flex-col justify-between">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-600 rounded-xl shadow-lg">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-none">Supabase Core</h1>
-                <p className="text-[10px] sm:text-xs text-emerald-400 font-mono mt-1 uppercase tracking-widest font-bold">Relational Cloud Engine</p>
-              </div>
-            </div>
-            
-            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              Experience ultra-fast read/write synchronization with Supabase PostgreSQL backend. Real-time RLS guards shield properties, room registries, and payments.
-            </p>
-
-            <div className="space-y-3.5 pt-4">
-              <div className="flex gap-3 text-xs leading-relaxed items-start">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</div>
-                <div>
-                  <p className="font-bold text-slate-200">Connect Database</p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">Provide project credentials to initialize the client instantly.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 text-xs leading-relaxed items-start">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</div>
-                <div>
-                  <p className="font-bold text-slate-200">Execute Tables SQL</p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">Copy table configurations schema and run them inside your SQL console.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 text-xs leading-relaxed items-start">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</div>
-                <div>
-                  <p className="font-bold text-slate-200">Deploy Security Policies</p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">Automated Row Level Security restricts tenant visibility entirely to owners.</p>
-                </div>
-              </div>
-            </div>
+        {/* Brand Header */}
+        <div className="text-center mb-6 relative">
+          <div className="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-3 shadow-sm border border-indigo-100/50">
+            <Building className="w-7 h-7" />
           </div>
-
-          <div className="mt-8 pt-4 border-t border-slate-900 flex flex-wrap gap-2 text-[10px] text-slate-500 font-mono">
-            <span>PLATFORM: SUPABASE JS v2</span>
-            <span>•</span>
-            <span>LOCAL ENV PREFERENCE</span>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Landlord Desk</h1>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Smart Property & Tenant Management Suite</p>
+          
+          {isConfigured && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsConfigured(false);
+                setError(null);
+              }}
+              title="Edit Connection Settings"
+              className="absolute top-0 right-0 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              <Database className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Action interactive panel (Form / Setup credentials) */}
-        <div className="md:w-1/2 p-6 sm:p-8 flex flex-col justify-center bg-white border-t md:border-t-0 md:border-l border-slate-100">
-          
+        {/* Action interactive panel */}
+        <div>
           {!isConfigured ? (
             /* CONNECTION FORM */
-            <form onSubmit={saveConfiguration} className="space-y-5">
-              <div className="space-y-1">
-                <h2 className="text-lg font-black text-slate-900 tracking-tight">Connect Supabase Account</h2>
-                <p className="text-xs text-slate-500">Provide VITE_SUPABASE configurations to instantiate connections.</p>
+            <form onSubmit={saveConfiguration} className="space-y-4">
+              <div className="text-center pb-2 border-b border-slate-50">
+                <h2 className="text-sm font-bold text-slate-800 tracking-tight">Configure Cloud Connection</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">Please provide your Supabase configurations to tie your portfolio data to the cloud.</p>
               </div>
 
               {error && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex flex-col gap-2 text-xs font-semibold leading-relaxed animate-in fade-in">
-                  <div className="flex gap-2.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex flex-col gap-2 text-xs font-semibold leading-relaxed animate-in fade-in">
+                  <div className="flex gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-650 mt-0.5" />
                     <div>{error}</div>
                   </div>
                   <button
                     type="button"
                     onClick={loginAsSandbox}
-                    className="mt-1 self-start bg-rose-100 hover:bg-rose-200 text-rose-900 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    className="mt-0.5 self-start bg-white hover:bg-rose-100 text-rose-900 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-rose-200 transition-all"
                   >
-                    ⚡ Bypass: Open App in Local Demo Mode
+                    ⚡ Bypass: Continue with Local Demo
                   </button>
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Supabase Project URL</label>
                   <div className="relative">
-                    <Database className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                    <Database className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                       type="url"
                       required
                       placeholder="https://your-project-ref.supabase.co"
                       value={supabaseUrl}
                       onChange={(e) => setSupabaseUrl(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 text-slate-800 font-mono transition-all"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-800 font-mono transition-all"
                     />
                   </div>
                 </div>
@@ -284,7 +256,7 @@ export function Login({ onAuthSuccess }: LoginProps) {
                       placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ..."
                       value={supabaseKey}
                       onChange={(e) => setSupabaseKey(e.target.value)}
-                      className="w-full pl-9 pr-10 py-2.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 text-slate-800 font-mono transition-all"
+                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-800 font-mono transition-all"
                     />
                     <button
                       type="button"
@@ -297,16 +269,12 @@ export function Login({ onAuthSuccess }: LoginProps) {
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-mono">
-                💡 <strong className="text-slate-900">Config:</strong> These can also be configured permanently in your project root <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-700">.env.example</code> or Secrets panel.
-              </div>
-
-              <div className="space-y-3 pt-1">
+              <div className="space-y-2 pt-2">
                 <button
                   type="submit"
-                  className="w-full bg-emerald-600 border border-emerald-500 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5"
                 >
-                  Save Configuration & Connect
+                  Save & Connect Database
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
@@ -319,51 +287,41 @@ export function Login({ onAuthSuccess }: LoginProps) {
                 <button
                   type="button"
                   onClick={loginAsSandbox}
-                  className="w-full bg-slate-900 hover:bg-slate-850 text-emerald-400 border border-slate-800 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5"
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
                 >
-                  🚀 Connect sandbox mode (No Setup Required)
+                  🚀 Instant Local Demo Sandbox (No Database)
                 </button>
               </div>
             </form>
           ) : (
             /* AUTH FORM */
-            <form onSubmit={handleAuth} className="space-y-5">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                    {isRegistering ? 'Register Portal Account' : 'Sign In Securely'}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    {isRegistering ? 'Create credentials to start cloud storage.' : 'Access your landlord manager dashboard.'}
-                  </p>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => setIsConfigured(false)}
-                  className="text-[10px] font-bold text-emerald-600 hover:underline border border-emerald-100 bg-emerald-50/50 px-2 py-1 rounded-lg shrink-0"
-                >
-                  Edit API Config
-                </button>
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div className="text-center pb-1">
+                <h2 className="text-sm font-bold text-slate-800 tracking-tight">
+                  {isRegistering ? 'Register Portal Account' : 'Sign In'}
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {isRegistering ? 'Create your landlord access master keys.' : 'Please access your landlord manager workspace.'}
+                </p>
               </div>
 
               {error && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex flex-col gap-2 text-xs font-semibold leading-relaxed animate-in fade-in duration-200">
-                  <div className="flex gap-2.5">
+                <div className="p-3 bg-rose-50 border border-rose-150 text-rose-800 rounded-xl flex flex-col gap-1.5 text-xs font-semibold leading-relaxed animate-in fade-in duration-200">
+                  <div className="flex gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
                     <div>{error}</div>
                   </div>
                   <button
                     type="button"
                     onClick={loginAsSandbox}
-                    className="mt-1 self-start bg-rose-100 hover:bg-rose-200 text-rose-905 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm flex items-center gap-1"
+                    className="self-start bg-white hover:bg-rose-100 text-rose-900 px-2 py-1 rounded border border-rose-200 text-[10px] font-bold transition-all flex items-center gap-1"
                   >
-                    ⚡ Bypass blockers: Instant Offline Demo Mode
+                    ⚡ Bypass: Switch to Local Demo Mode
                   </button>
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Username or Email Address</label>
                   <div className="relative">
@@ -371,10 +329,10 @@ export function Login({ onAuthSuccess }: LoginProps) {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. gauravstha or info@example.com"
+                      placeholder="e.g. landlord_one or email@example.com"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-800 font-medium transition-all"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
                       disabled={loading}
                     />
                   </div>
@@ -387,16 +345,16 @@ export function Login({ onAuthSuccess }: LoginProps) {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
-                      placeholder="At least 6 characters"
+                      placeholder="Min 6 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-800 font-medium transition-all"
+                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
                       disabled={loading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-650"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -411,10 +369,10 @@ export function Login({ onAuthSuccess }: LoginProps) {
                       <input
                         type={showPassword ? 'text' : 'password'}
                         required
-                        placeholder="Repeat password exactly"
+                        placeholder="Confirm password exactly"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-800 font-medium transition-all"
+                        className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
                         disabled={loading}
                       />
                     </div>
@@ -422,15 +380,15 @@ export function Login({ onAuthSuccess }: LoginProps) {
                 )}
               </div>
 
-              <div className="space-y-3 pt-1">
+              <div className="space-y-3 pt-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-slate-950 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-full bg-indigo-605 hover:bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? 'Validating on Supabase...' : (
+                  {loading ? 'Authenticating Cloud Keys...' : (
                     <>
-                      {isRegistering ? 'Register Portal Space' : 'Access Landlord Desk'}
+                      {isRegistering ? 'Create New Workspace' : 'Sign In Now'}
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -445,7 +403,7 @@ export function Login({ onAuthSuccess }: LoginProps) {
                 <button
                   type="button"
                   onClick={loginAsSandbox}
-                  className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-1.5"
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-indigo-700 border border-slate-300 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
                 >
                   🚀 Launch Instant local demo
                 </button>
@@ -453,7 +411,7 @@ export function Login({ onAuthSuccess }: LoginProps) {
 
               <div className="pt-2 text-center text-xs">
                 <span className="text-slate-500">
-                  {isRegistering ? 'Already registered on this portal?' : "New to the portal?"}
+                  {isRegistering ? 'Already registered?' : 'New to this portal?'}
                 </span>{' '}
                 <button
                   type="button"
@@ -461,7 +419,7 @@ export function Login({ onAuthSuccess }: LoginProps) {
                     setIsRegistering(!isRegistering);
                     setError(null);
                   }}
-                  className="text-emerald-600 font-bold hover:underline"
+                  className="text-indigo-600 font-bold hover:underline"
                   disabled={loading}
                 >
                   {isRegistering ? 'Login Instead' : 'Create Account'}
@@ -469,7 +427,6 @@ export function Login({ onAuthSuccess }: LoginProps) {
               </div>
             </form>
           )}
-
         </div>
       </div>
     </div>
