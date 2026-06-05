@@ -11,6 +11,7 @@ export interface House {
   waterBillingType?: 'unit' | 'fixed';
   trashBillingType?: 'unit' | 'fixed';
   isDeleted?: boolean;
+  sharedWithEmails?: string[];
 }
 
 export interface Room {

@@ -75,7 +75,8 @@ const mapHouseFromDb = (dbHouse: any): House => ({
   electricityBillingType: dbHouse.electricity_billing_type || 'fixed',
   waterBillingType: dbHouse.water_billing_type || 'fixed',
   trashBillingType: dbHouse.trash_billing_type || 'fixed',
-  isDeleted: dbHouse.is_deleted
+  isDeleted: dbHouse.is_deleted,
+  sharedWithEmails: Array.isArray(dbHouse.shared_with_emails) ? dbHouse.shared_with_emails : []
 });
 
 const mapHouseToDb = (house: Partial<House>, ownerId: string) => ({
@@ -91,6 +92,7 @@ const mapHouseToDb = (house: Partial<House>, ownerId: string) => ({
   water_billing_type: house.waterBillingType,
   trash_billing_type: house.trashBillingType,
   is_deleted: house.isDeleted,
+  shared_with_emails: house.sharedWithEmails,
   owner_id: ownerId
 });
 
@@ -359,11 +361,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         setIsSandboxMode(false);
 
-        // Fetch houses first
+        // Fetch houses first (owned OR shared with email)
         const { data: housesData, error: housesError } = await supabase
           .from('houses')
           .select('*')
-          .eq('owner_id', user.id);
+          .or(`owner_id.eq.${user.id},shared_with_emails.cs.{${user.email}}`);
 
         if (housesError) {
           // If query returns a code indicating schema is missing, fallback to sandbox
@@ -389,10 +391,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return;
         }
 
-        // Fetch remaining tables
-        const { data: roomsData } = await supabase.from('rooms').select('*').eq('owner_id', user.id);
-        const { data: tenantsData } = await supabase.from('tenants').select('*').eq('owner_id', user.id);
-        const { data: paymentsData } = await supabase.from('payments').select('*').eq('owner_id', user.id);
+        const validHouseIds = housesData.map(h => h.id);
+
+        // Fetch remaining tables using house_ids
+        const { data: roomsData } = await supabase.from('rooms').select('*').in('house_id', validHouseIds);
+        const { data: tenantsData } = await supabase.from('tenants').select('*').in('house_id', validHouseIds);
+        const { data: paymentsData } = await supabase.from('payments').select('*').in('house_id', validHouseIds);
 
         if (!isSubscribed) return;
 

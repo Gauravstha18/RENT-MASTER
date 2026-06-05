@@ -218,6 +218,31 @@ export function PropertyLayout() {
     setNewFloorBaseRent('');
   };
 
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+
+  const handleShareSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentHouse || !shareEmail.trim()) return;
+    
+    const email = shareEmail.trim().toLowerCase();
+    const currentShared = currentHouse.sharedWithEmails || [];
+    
+    if (!currentShared.includes(email)) {
+      updateHouse(currentHouse.id, { sharedWithEmails: [...currentShared, email] });
+    }
+    
+    setShareEmail('');
+  };
+  
+  const removeSharedEmail = (emailToRemove: string) => {
+    if (!currentHouse) return;
+    const currentShared = currentHouse.sharedWithEmails || [];
+    updateHouse(currentHouse.id, {
+      sharedWithEmails: currentShared.filter(e => e !== emailToRemove)
+    });
+  };
+
   const openUtilityModal = () => {
     setElecRate(currentHouse.electricityRate?.toString() || '');
     setElecBilling(currentHouse.electricityBillingType || 'unit');
@@ -362,6 +387,12 @@ export function PropertyLayout() {
           </div>
           <div className="text-right">
             <div className="flex gap-2 justify-end mb-2">
+              <button 
+                onClick={() => setIsShareModalOpen(true)}
+                className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+              >
+                Share Property
+              </button>
               <button 
                 onClick={() => {
                   if (window.confirm("Are you sure you want to delete this entire property? This will also remove all rooms and tenants associated with it. This action cannot be undone.")) {
@@ -789,6 +820,52 @@ export function PropertyLayout() {
           </Modal>
         );
       })()}
+
+      <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title="Share Property">
+        <div className="space-y-6">
+          <p className="text-sm text-slate-600">
+            Add collaborators to this property by entering their email addresses. Shared users will get full access to view and manage rooms, tenants, and payments for this property.
+          </p>
+          
+          <form onSubmit={handleShareSubmit} className="flex gap-2">
+            <input 
+              type="email" 
+              value={shareEmail}
+              onChange={e => setShareEmail(e.target.value)}
+              placeholder="Enter collaborator's email..."
+              required
+              className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+            <button 
+              type="submit"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 transition"
+            >
+              Add
+            </button>
+          </form>
+
+          {currentHouse.sharedWithEmails && currentHouse.sharedWithEmails.length > 0 && (
+            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Current Collaborators</h4>
+              <ul className="space-y-2">
+                {currentHouse.sharedWithEmails.map(email => (
+                  <li key={email} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg bg-slate-50">
+                    <span className="text-sm font-semibold text-slate-800">{email}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => removeSharedEmail(email)}
+                      className="text-slate-400 hover:text-rose-500 transition-colors"
+                      title="Remove access"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal isOpen={isUtilityModalOpen} onClose={() => setIsUtilityModalOpen(false)} title="Utility Provider Rates">
         <form onSubmit={handleUtilitySubmit} className="space-y-0">
