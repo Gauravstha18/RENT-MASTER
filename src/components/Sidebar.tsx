@@ -30,10 +30,24 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
   const handleAddHouse = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newHouseName.trim()) return;
-    const newId = addHouse({ name: newHouseName, address: newHouseAddress });
-    
+
     const num = parseInt(numberOfRooms, 10);
     const floors = parseInt(numberOfFloors, 10);
+
+    const floorsArray: string[] = [];
+    if (!isNaN(floors) && floors > 0) {
+      for (let f = 1; f <= floors; f++) {
+        floorsArray.push(`Floor ${f}`);
+      }
+    } else {
+      floorsArray.push('Floor 1');
+    }
+
+    const newId = addHouse({ 
+      name: newHouseName, 
+      address: newHouseAddress, 
+      floors: floorsArray 
+    });
     
     if (!isNaN(num) && num > 0) {
       if (!isNaN(floors) && floors > 0) {

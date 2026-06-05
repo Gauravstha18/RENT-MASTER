@@ -187,6 +187,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [loadingUser, setLoadingUser] = useState(true);
   const [isSandboxMode, setIsSandboxMode] = useState(false);
 
+  // To solve async state update lag when creating a property and room simultaneously
+  const recentlyCreatedHouseIds = React.useRef<Set<string>>(new Set());
+
   // Safe seed fallback local state for offline sandbox or initial accounts
   const seedLocalMockData = () => {
     // Starts completely empty by default as requested to have no pre-made properties like Sunrise Villa
@@ -379,6 +382,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const id = generateId();
     const newHouse = { ...house, id };
 
+    // Register this house ID as recently created to bypass active state update delay for instant room setup
+    recentlyCreatedHouseIds.current.add(id);
+
     if (user && !isSandboxMode) {
       supabase.from('houses').insert(mapHouseToDb(newHouse, user.id)).then(({ error }) => {
         if (error) console.error('insert house error:', error);
@@ -439,8 +445,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addRoom = (room: Omit<Room, 'id'>) => {
-    // Strict ownership validation check: only allow adding a room to a user's own property
-    const ownsHouse = houses.some(h => h.id === room.houseId);
+    // Strict ownership validation check: only allow adding a room to a user's own property or a newly created one in this click event
+    const ownsHouse = houses.some(h => h.id === room.houseId) || recentlyCreatedHouseIds.current.has(room.houseId);
     if (!ownsHouse) return;
 
     const id = generateId();
