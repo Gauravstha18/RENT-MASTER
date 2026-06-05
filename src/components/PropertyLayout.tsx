@@ -7,9 +7,10 @@ import { Room } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
 
 export function PropertyLayout() {
-  const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, deleteFloor, tenants, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
+  const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, deleteFloor, tenants, getTenantTotalRent, globalAction, setGlobalAction, user } = useAppContext();
   
   const currentHouse = houses.find(h => h.id === activeHouseId);
+  const isOwner = user && currentHouse && (user.email === currentHouse.ownerEmail || currentHouse.ownerEmail === undefined);
   const houseRooms = rooms.filter(r => r.houseId === activeHouseId);
 
   // Filters for rooms in current floor
@@ -220,26 +221,39 @@ export function PropertyLayout() {
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
+  const [shareRole, setShareRole] = useState<'read' | 'write'>('read');
 
   const handleShareSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentHouse || !shareEmail.trim()) return;
     
     const email = shareEmail.trim().toLowerCase();
-    const currentShared = currentHouse.sharedWithEmails || [];
+    const currentCollaborators = currentHouse.collaborators || [];
     
-    if (!currentShared.includes(email)) {
-      updateHouse(currentHouse.id, { sharedWithEmails: [...currentShared, email] });
+    // Check if already a collaborator
+    if (!currentCollaborators.some(c => c.email === email)) {
+      updateHouse(currentHouse.id, { 
+        collaborators: [...currentCollaborators, { email, role: shareRole }] 
+      });
     }
     
     setShareEmail('');
+    setShareRole('read');
   };
   
-  const removeSharedEmail = (emailToRemove: string) => {
+  const removeCollaborator = (emailToRemove: string) => {
     if (!currentHouse) return;
-    const currentShared = currentHouse.sharedWithEmails || [];
+    const currentCollaborators = currentHouse.collaborators || [];
     updateHouse(currentHouse.id, {
-      sharedWithEmails: currentShared.filter(e => e !== emailToRemove)
+      collaborators: currentCollaborators.filter(c => c.email !== emailToRemove)
+    });
+  };
+
+  const updateCollaboratorRole = (emailToUpdate: string, newRole: 'read' | 'write') => {
+    if (!currentHouse) return;
+    const currentCollaborators = currentHouse.collaborators || [];
+    updateHouse(currentHouse.id, {
+      collaborators: currentCollaborators.map(c => c.email === emailToUpdate ? { ...c, role: newRole } : c)
     });
   };
 
@@ -371,38 +385,44 @@ export function PropertyLayout() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-slate-900">{currentHouse.name}</h1>
-              <button 
-                onClick={() => {
-                  setEditPropertyName(currentHouse.name);
-                  setEditPropertyAddress(currentHouse.address || '');
-                  setIsEditPropertyOpen(true);
-                }} 
-                className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
-                title="Edit Property Info"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
+              {isOwner && (
+                <button 
+                  onClick={() => {
+                    setEditPropertyName(currentHouse.name);
+                    setEditPropertyAddress(currentHouse.address || '');
+                    setIsEditPropertyOpen(true);
+                  }} 
+                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                  title="Edit Property Info"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <p className="text-slate-500 mt-1">{currentHouse.address}</p>
           </div>
           <div className="text-right">
             <div className="flex gap-2 justify-end mb-2">
-              <button 
-                onClick={() => setIsShareModalOpen(true)}
-                className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
-              >
-                Share Property
-              </button>
-              <button 
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to delete this entire property? This will also remove all rooms and tenants associated with it. This action cannot be undone.")) {
-                    deleteHouse(currentHouse.id);
-                  }
-                }}
-                className="text-xs font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200"
-              >
-                Delete Property
-              </button>
+              {isOwner && (
+                <>
+                  <button 
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                  >
+                    Share Property
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to delete this entire property? This will also remove all rooms and tenants associated with it. This action cannot be undone.")) {
+                        deleteHouse(currentHouse.id);
+                      }
+                    }}
+                    className="text-xs font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200"
+                  >
+                    Delete Property
+                  </button>
+                </>
+              )}
               <button 
                 onClick={openUtilityModal}
                 className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
@@ -827,7 +847,7 @@ export function PropertyLayout() {
             Add collaborators to this property by entering their email addresses. Shared users will get full access to view and manage rooms, tenants, and payments for this property.
           </p>
           
-          <form onSubmit={handleShareSubmit} className="flex gap-2">
+          <form onSubmit={handleShareSubmit} className="flex gap-2 items-center">
             <input 
               type="email" 
               value={shareEmail}
@@ -836,6 +856,14 @@ export function PropertyLayout() {
               required
               className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
+            <select
+              value={shareRole}
+              onChange={e => setShareRole(e.target.value as 'read' | 'write')}
+              className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none cursor-pointer"
+            >
+              <option value="read">View Only</option>
+              <option value="write">Can Edit</option>
+            </select>
             <button 
               type="submit"
               className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 transition"
@@ -844,21 +872,31 @@ export function PropertyLayout() {
             </button>
           </form>
 
-          {currentHouse.sharedWithEmails && currentHouse.sharedWithEmails.length > 0 && (
+          {currentHouse.collaborators && currentHouse.collaborators.length > 0 && (
             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Current Collaborators</h4>
               <ul className="space-y-2">
-                {currentHouse.sharedWithEmails.map(email => (
-                  <li key={email} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg bg-slate-50">
-                    <span className="text-sm font-semibold text-slate-800">{email}</span>
-                    <button 
-                      type="button" 
-                      onClick={() => removeSharedEmail(email)}
-                      className="text-slate-400 hover:text-rose-500 transition-colors"
-                      title="Remove access"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                {currentHouse.collaborators.map(c => (
+                  <li key={c.email} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg bg-slate-50">
+                    <span className="text-sm font-semibold text-slate-800">{c.email}</span>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={c.role}
+                        onChange={e => updateCollaboratorRole(c.email, e.target.value as 'read' | 'write')}
+                        className="text-xs p-1 bg-white border border-slate-200 rounded text-slate-600 outline-none cursor-pointer"
+                      >
+                        <option value="read">View Only</option>
+                        <option value="write">Can Edit</option>
+                      </select>
+                      <button 
+                        type="button" 
+                        onClick={() => removeCollaborator(c.email)}
+                        className="text-slate-400 hover:text-rose-500 transition-colors"
+                        title="Remove access"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

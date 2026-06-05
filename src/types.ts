@@ -1,3 +1,8 @@
+export interface Collaborator {
+  email: string;
+  role: 'read' | 'write';
+}
+
 export interface House {
   id: string;
   name: string;
@@ -12,6 +17,8 @@ export interface House {
   trashBillingType?: 'unit' | 'fixed';
   isDeleted?: boolean;
   sharedWithEmails?: string[];
+  collaborators?: Collaborator[];
+  ownerEmail?: string;
 }
 
 export interface Room {

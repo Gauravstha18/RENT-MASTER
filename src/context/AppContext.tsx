@@ -76,10 +76,12 @@ const mapHouseFromDb = (dbHouse: any): House => ({
   waterBillingType: dbHouse.water_billing_type || 'fixed',
   trashBillingType: dbHouse.trash_billing_type || 'fixed',
   isDeleted: dbHouse.is_deleted,
-  sharedWithEmails: Array.isArray(dbHouse.shared_with_emails) ? dbHouse.shared_with_emails : []
+  ownerEmail: dbHouse.owner_email,
+  sharedWithEmails: Array.isArray(dbHouse.shared_with_emails) ? dbHouse.shared_with_emails : [],
+  collaborators: Array.isArray(dbHouse.collaborators) ? dbHouse.collaborators : []
 });
 
-const mapHouseToDb = (house: Partial<House>, ownerId: string) => ({
+const mapHouseToDb = (house: Partial<House>, ownerId: string, ownerEmail?: string) => ({
   id: house.id,
   name: house.name,
   address: house.address,
@@ -93,6 +95,8 @@ const mapHouseToDb = (house: Partial<House>, ownerId: string) => ({
   trash_billing_type: house.trashBillingType,
   is_deleted: house.isDeleted,
   shared_with_emails: house.sharedWithEmails,
+  collaborators: house.collaborators,
+  owner_email: house.ownerEmail || ownerEmail,
   owner_id: ownerId
 });
 
@@ -368,10 +372,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const response = await supabase
           .from('houses')
           .select('*')
-          .or(`owner_id.eq.${user.id},shared_with_emails.cs.{${user.email}}`);
+          .or(`owner_id.eq.${user.id},shared_with_emails.cs.{${user.email}},collaborators.cs.[{"email":"${user.email}"}]`);
           
-        if (response.error && (response.error.message.includes('shared_with_emails') || response.error.code === '42703')) {
-          console.warn('shared_with_emails column missing, falling back to older schema fetch');
+        if (response.error && (response.error.message.includes('shared_with_emails') || response.error.message.includes('collaborators') || response.error.code === '42703')) {
+          console.warn('shared_with_emails or collaborators column missing, falling back to older schema fetch');
           // Fallback if shared_with_emails column does not exist
           const fallback = await supabase.from('houses').select('*').eq('owner_id', user.id);
           housesData = fallback.data;
@@ -386,7 +390,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (housesError.code === 'PGRST116' || housesError.message.includes('relation "public.houses" does not exist')) {
             console.warn('Houses table not found in Supabase. Running in connection-fallback Sandbox mode.');
             setIsSandboxMode(true);
-            seedLocalMockData();
+            setHouses([]);
+            setRooms([]);
+            setTenants([]);
+            setPayments([]);
+            setActiveHouseId(null);
             return;
           }
           throw housesError;
@@ -436,7 +444,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (err) {
         console.error('Error fetching from Supabase database:', err);
         setIsSandboxMode(true);
-        seedLocalMockData();
+        setHouses([]);
+        setRooms([]);
+        setTenants([]);
+        setPayments([]);
+        setActiveHouseId(null);
       }
     };
 
@@ -491,23 +503,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     recentlyCreatedHouseIds.current.add(id);
 
     if (user && !isSandboxMode) {
-      supabase.from('houses').insert(mapHouseToDb(newHouse, user.id)).then(({ error }) => {
+      supabase.from('houses').insert(mapHouseToDb(newHouse, user.id, user.email)).then(({ error }) => {
         if (error) console.error('insert house error:', error);
       });
     }
 
-    setHouses(prev => [...prev, newHouse]);
+    setHouses(prev => {
+      const houseWithEmail = { ...newHouse, ownerEmail: user?.email };
+      return [...prev, houseWithEmail];
+    });
     if (!activeHouseId) setActiveHouseId(id);
     return id;
   };
   
   const updateHouse = (id: string, data: Partial<House>) => {
     // Strict ownership validation check: only allow operations on houses owned by this user
-    const exists = houses.some(h => h.id === id);
-    if (!exists) return;
+    const houseToUpdate = houses.find(h => h.id === id);
+    if (!houseToUpdate) return;
 
     if (user && !isSandboxMode) {
-      const dbData = mapHouseToDb({ ...houses.find(h => h.id === id), ...data, id }, user.id);
+      const dbData = mapHouseToDb({ ...houseToUpdate, ...data, id }, user.id, user.email || houseToUpdate.ownerEmail);
       supabase.from('houses').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update house error:', error);
       });

@@ -3,6 +3,7 @@ import { Home, Users, DoorOpen, CreditCard, Building, Plus, LogOut, Archive } fr
 import { useAppContext } from '../context/AppContext';
 import { ViewState } from '../types';
 import { Modal } from './Modal';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -12,6 +13,7 @@ interface SidebarProps {
 export function Sidebar({ currentView, setView }: SidebarProps) {
   const { houses, activeHouseId, setActiveHouseId, addHouse, addRoom, rooms, tenants, user, logout } = useAppContext();
   const [isAddHouseOpen, setIsAddHouseOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [newHouseName, setNewHouseName] = useState('');
   const [newHouseAddress, setNewHouseAddress] = useState('');
   const [numberOfRooms, setNumberOfRooms] = useState('');
@@ -126,7 +128,14 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
               }`}
             >
               <div className="flex-1 flex flex-col justify-center items-start text-left truncate overflow-hidden pr-2">
-                <span className={`text-sm font-medium ${activeHouseId === house.id ? 'text-indigo-400' : 'text-slate-300'}`}>{house.name}</span>
+                <span className={`text-sm font-medium flex items-center gap-2 ${activeHouseId === house.id ? 'text-indigo-400' : 'text-slate-300'}`}>
+                  {house.name}
+                </span>
+                {house.ownerEmail && house.ownerEmail !== user?.email && (
+                  <span className="text-[9px] font-medium text-amber-500/90 mt-0.5 truncate max-w-full">
+                    Shared by {house.ownerEmail}
+                  </span>
+                )}
                 <span className="text-[10px] mt-0.5 mt-1 block truncate w-full">
                   <span className="text-white font-bold">{totalRooms}</span> <span className="opacity-70">Rms</span> · <span className="text-emerald-400 font-bold">{occupiedRooms}</span> <span className="text-emerald-400/70">F</span> / <span className="text-rose-400 font-bold">{emptyRooms}</span> <span className="text-rose-400/70">E</span>
                 </span>
@@ -181,13 +190,22 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
           </div>
         </div>
         <button 
-          onClick={logout} 
+          onClick={() => setIsLogoutModalOpen(true)} 
           title="Sign Out" 
           className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors shrink-0"
         >
           <LogOut className="w-4 h-4" />
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        onCancel={() => setIsLogoutModalOpen(false)}
+        onConfirm={logout}
+        title="Sign Out"
+        message="Are you sure you want to sign out? You will need to sign in again to access your properties."
+        confirmText="Sign Out"
+      />
 
       <Modal isOpen={isAddHouseOpen} onClose={() => setIsAddHouseOpen(false)} title="Add New Property">
         <form onSubmit={handleAddHouse} className="space-y-4">
