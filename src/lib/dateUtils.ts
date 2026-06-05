@@ -1,5 +1,5 @@
 import NepaliDate from 'nepali-date-converter';
-import { Tenant, RentCycle } from '../types';
+import { Tenant, RentCycle, Payment } from '../types';
 
 export function getNepaliDateStr(adDateStr: string): string {
   try {
@@ -85,4 +85,118 @@ export function calculateProRatedAmount(
     daysActive: totalActiveDays,
     nextDueDate: nextCycleStart.toISOString().slice(0, 10)
   };
+}
+
+export interface RentDueResult {
+  dueDate: string;
+  isOverdue: boolean;
+  daysDiff: number;
+  inlineStyleClass: string;
+  displayText: string;
+}
+
+function getOverdueBreakdown(activeDueDate: Date, refDate: Date): string {
+  let years = refDate.getFullYear() - activeDueDate.getFullYear();
+  let months = refDate.getMonth() - activeDueDate.getMonth();
+  let days = refDate.getDate() - activeDueDate.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const parts: string[] = [];
+  if (years > 0) {
+    parts.push(`${years} Year${years > 1 ? 's' : ''}`);
+  }
+  if (months > 0) {
+    parts.push(`${months} Month${months > 1 ? 's' : ''}`);
+  }
+  if (days > 0 || parts.length === 0) {
+    parts.push(`${days} Day${days !== 1 ? 's' : ''}`);
+  }
+
+  return parts.join(', ');
+}
+
+export function getRentDueInfo(
+  tenant: Tenant,
+  paymentsList: Payment[],
+  referenceDateStr: string = getTodayDateStr()
+): RentDueResult | null {
+  if (!tenant.startDate) return null;
+
+  const start = new Date(tenant.startDate);
+  const ref = new Date(referenceDateStr);
+  if (isNaN(start.getTime()) || isNaN(ref.getTime())) return null;
+
+  const cycle = tenant.rentCycle || 'monthly';
+  const type = tenant.rentCollectionType || 'arrears';
+
+  // For "arrears" (the default), the first due date is after the month/cycle is completed.
+  // For "advance", the first due date is immediately upon joining (the start date).
+  let initialDueStr = tenant.startDate;
+  if (type === 'arrears') {
+    initialDueStr = getNextCycleDate(tenant.startDate, cycle);
+  }
+
+  let due = new Date(initialDueStr);
+
+  if (due > ref) {
+    const diffTime = due.getTime() - ref.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return {
+      dueDate: initialDueStr,
+      isOverdue: false,
+      daysDiff: days,
+      inlineStyleClass: "text-emerald-600 font-bold",
+      displayText: `Due in ${days} day${days > 1 ? 's' : ''} (${initialDueStr})`
+    };
+  }
+
+  // Iterate and find active due date based on paid payments count
+  const paidPaymentsCount = paymentsList.filter(
+    p => p.tenantId === tenant.id && p.status === 'paid'
+  ).length;
+
+  let activeDueDateStr = initialDueStr;
+  if (paidPaymentsCount > 0) {
+    let tempDueStr = initialDueStr;
+    for (let i = 0; i < paidPaymentsCount; i++) {
+      tempDueStr = getNextCycleDate(tempDueStr, cycle);
+    }
+    activeDueDateStr = tempDueStr;
+  }
+
+  const activeDueDate = new Date(activeDueDateStr);
+  const diffTime = ref.getTime() - activeDueDate.getTime();
+  const daysDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (daysDiff > 0) {
+    const breakdownText = getOverdueBreakdown(activeDueDate, ref);
+    return {
+      dueDate: activeDueDateStr,
+      isOverdue: true,
+      daysDiff,
+      inlineStyleClass: "text-rose-600 font-bold font-mono",
+      displayText: `OVERDUE by ${breakdownText} (Due: ${activeDueDateStr})`
+    };
+  } else {
+    const upcomingDiff = Math.ceil((activeDueDate.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      dueDate: activeDueDateStr,
+      isOverdue: false,
+      daysDiff: upcomingDiff,
+      inlineStyleClass: "text-emerald-600 font-bold",
+      displayText: upcomingDiff === 0 
+        ? `Due Today (${activeDueDateStr})` 
+        : `Due in ${upcomingDiff} day${upcomingDiff > 1 ? 's' : ''} (${activeDueDateStr})`
+    };
+  }
 }

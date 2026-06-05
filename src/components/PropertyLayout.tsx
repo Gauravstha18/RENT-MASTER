@@ -7,7 +7,7 @@ import { Room } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
 
 export function PropertyLayout() {
-  const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, tenants, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
+  const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, deleteFloor, tenants, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
   
   const currentHouse = houses.find(h => h.id === activeHouseId);
   const houseRooms = rooms.filter(r => r.houseId === activeHouseId);
@@ -289,14 +289,8 @@ export function PropertyLayout() {
   const executeDeleteFloor = () => {
     if (!currentHouse || !confirmDeleteFloorName) return;
     const floorName = confirmDeleteFloorName;
-    const roomsInFloor = houseRooms.filter(r => (r.floor || 'Floor 1') === floorName);
     
-    roomsInFloor.forEach(r => deleteRoom(r.id));
-    
-    const currentFloors = currentHouse.floors || [];
-    updateHouse(currentHouse.id, {
-      floors: currentFloors.filter(f => f !== floorName)
-    });
+    deleteFloor(currentHouse.id, floorName);
     
     if (activeFloor === floorName) {
       setActiveFloor(uniqueFloors.find(f => f !== floorName) || null);
@@ -436,7 +430,7 @@ export function PropertyLayout() {
                         setActiveFloors(uniqueFloors);
                       }
                     }}
-                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-55 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer"
+                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer"
                   >
                     {activeFloors.length === uniqueFloors.length ? "Reset Selection" : "Show All"}
                   </button>
@@ -665,31 +659,37 @@ export function PropertyLayout() {
                                 <div 
                                   key={room.id} 
                                   onClick={() => openRoomInfo(room)}
-                                  className="border border-slate-250 rounded-xl p-4 hover:border-slate-350 hover:shadow-md transition-all bg-white group flex flex-col justify-between cursor-pointer"
+                                  className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 bg-white group flex flex-col justify-between cursor-pointer"
                                 >
-                                  <div className="flex justify-between items-start mb-2">
+                                  <div className="flex justify-between items-center mb-3">
                                     <div className="flex items-center gap-2">
+                                      <span className="font-bold text-slate-800 text-sm">{room.roomNumber}</span>
                                       {isOccupied ? (
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500" title="Occupied"></div>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-250/20">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                          Occupied
+                                        </span>
                                       ) : (
-                                        <div className="w-2 h-2 rounded-full bg-rose-500" title="Vacant"></div>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-250/20">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                          Vacant
+                                        </span>
                                       )}
-                                      <span className="font-bold text-slate-800">{room.roomNumber}</span>
                                     </div>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={(e) => { e.stopPropagation(); openRoomModal(room); }} className="p-1 text-slate-400 hover:text-indigo-600" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                                      <button onClick={(e) => { e.stopPropagation(); handleRoomDelete(room.id); }} className="p-1 text-slate-400 hover:text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                                      <button onClick={(e) => { e.stopPropagation(); openRoomModal(room); }} className="p-1 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleRoomDelete(room.id); }} className="p-1 text-slate-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </div>
                                   </div>
                                   
                                   <div className="flex justify-between items-end border-t border-slate-100 pt-2.5 mt-2">
                                     <div>
                                       <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Base Rent</div>
-                                      <div className="font-mono font-bold text-slate-800 text-sm">NPR {room.rentAmount}</div>
+                                      <div className="font-mono font-extrabold text-slate-800 text-sm">NPR {room.rentAmount}</div>
                                     </div>
                                     {isOccupied && tenant && (
                                       <div className="text-right">
-                                        <span className="text-[10px] text-indigo-600 font-semibold block truncate max-w-[130px]" title={tenant.name}>{tenant.name}</span>
+                                        <span className="text-[10px] text-indigo-600 font-bold block truncate max-w-[130px]" title={tenant.name}>{tenant.name}</span>
                                         <span className="text-[9px] text-slate-400 font-semibold block">Joined: {tenant.startDate ? formatWithNepaliDate(tenant.startDate) : 'N/A'}</span>
                                       </div>
                                     )}

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { House, Room, Tenant, Payment, ViewState } from '../types';
+import { House, Room, Tenant, Payment, ViewState, ArchivedItem } from '../types';
 import { mockHouses, mockRooms, mockTenants, mockPayments } from '../lib/mockData';
 import { supabase, credentials } from '../lib/supabase';
 
@@ -16,6 +16,12 @@ interface AppContextType {
   payments: Payment[];
   activeHouseId: string | null;
   setActiveHouseId: (id: string | null) => void;
+  
+  // Archived items
+  archivedItems: ArchivedItem[];
+  deleteFloor: (houseId: string, floorName: string) => void;
+  restoreArchivedItem: (id: string) => void;
+  deleteArchivedItemPermanently: (id: string) => void;
   
   // Real-time Auth info
   user: AuthUser | null;
@@ -39,7 +45,7 @@ interface AppContextType {
   
   addRoom: (room: Omit<Room, 'id'>) => void;
   updateRoom: (id: string, room: Partial<Room>) => void;
-  deleteRoom: (id: string) => void;
+  deleteRoom: (id: string, preventArchive?: boolean) => void;
   
   addTenant: (tenant: Omit<Tenant, 'id'>) => void;
   updateTenant: (id: string, tenant: Partial<Tenant>) => void;
@@ -182,6 +188,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
 
+  // Archived Items state
+  const [archivedItems, setArchivedItems] = useState<ArchivedItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('PM_ARCHIVED_ROOMS_FLOORS');
+      if (saved) {
+        const parsed = JSON.parse(saved) as ArchivedItem[];
+        const fifteenDaysAgo = new Date().getTime() - 15 * 24 * 60 * 60 * 1000;
+        return parsed.filter(item => new Date(item.deletedAt).getTime() > fifteenDaysAgo);
+      }
+    } catch (e) {
+      console.error('Failed to load archived rooms/floors', e);
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('PM_ARCHIVED_ROOMS_FLOORS', JSON.stringify(archivedItems));
+  }, [archivedItems]);
+
   // Authenticated state
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -192,12 +217,74 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Safe seed fallback local state for offline sandbox or initial accounts
   const seedLocalMockData = () => {
-    // Starts completely empty by default as requested to have no pre-made properties like Sunrise Villa
-    setHouses([]);
-    setRooms([]);
-    setTenants([]);
-    setPayments([]);
-    setActiveHouseId(null);
+    const demoHouse = {
+      id: 'h-demo',
+      name: 'demo',
+      address: 'Kathmandu, Nepal',
+      floors: ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 4']
+    };
+
+    const demoRooms = [
+      { id: 'r-demo-1', houseId: 'h-demo', roomNumber: '101', rentAmount: 12000, floor: 'Floor 1' },
+      { id: 'r-demo-2', houseId: 'h-demo', roomNumber: '201', rentAmount: 14500, floor: 'Floor 2' },
+      { id: 'r-demo-3', houseId: 'h-demo', roomNumber: '301', rentAmount: 11000, floor: 'Floor 3' },
+      { id: 'r-demo-4', houseId: 'h-demo', roomNumber: '401', rentAmount: 15000, floor: 'Floor 4' }
+    ];
+
+    const demoTenants = [
+      {
+        id: 't-demo-1',
+        houseId: 'h-demo',
+        name: 'Ram Bahadur',
+        phone: '9841234567',
+        roomIds: ['r-demo-1'],
+        rentMode: 'auto' as const,
+        startDate: '2026-05-10',
+        rentCycle: 'monthly' as const,
+        rentCollectionType: 'arrears' as const
+      },
+      {
+        id: 't-demo-2',
+        houseId: 'h-demo',
+        name: 'Sita Kumari',
+        phone: '9807654321',
+        roomIds: ['r-demo-2'],
+        rentMode: 'auto' as const,
+        startDate: '2026-04-15',
+        rentCycle: 'monthly' as const,
+        rentCollectionType: 'arrears' as const
+      },
+      {
+        id: 't-demo-3',
+        houseId: 'h-demo',
+        name: 'Hari Prasad',
+        phone: '9812345678',
+        roomIds: ['r-demo-3'],
+        rentMode: 'auto' as const,
+        startDate: '2026-06-03',
+        rentCycle: 'monthly' as const,
+        rentCollectionType: 'arrears' as const
+      }
+    ];
+
+    const demoPayments = [
+      {
+        id: 'p-demo-1',
+        houseId: 'h-demo',
+        tenantId: 't-demo-2',
+        month: '2026-04',
+        amountDue: 14500,
+        amountPaid: 14500,
+        paymentDate: '2026-04-15',
+        status: 'paid' as const
+      }
+    ];
+
+    setHouses([demoHouse]);
+    setRooms(demoRooms);
+    setTenants(demoTenants);
+    setPayments(demoPayments);
+    setActiveHouseId('h-demo');
   };
 
   // Auth monitoring listener
@@ -476,10 +563,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setRooms(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
   };
 
-  const deleteRoom = (id: string) => {
+  const deleteRoom = (id: string, preventArchive?: boolean) => {
     // Strict ownership validation check: only allow operations on rooms owned by this user
     const targetRoom = rooms.find(r => r.id === id);
     if (!targetRoom || !houses.some(h => h.id === targetRoom.houseId)) return;
+
+    if (!preventArchive) {
+      const newArchiveItem: ArchivedItem = {
+        id: generateId(),
+        type: 'room',
+        name: `Room ${targetRoom.roomNumber} (${targetRoom.floor || 'No Floor'})`,
+        deletedAt: new Date().toISOString(),
+        houseId: targetRoom.houseId,
+        roomData: targetRoom
+      };
+      setArchivedItems(prev => [newArchiveItem, ...prev]);
+    }
 
     if (user && !isSandboxMode) {
       supabase.from('rooms').delete().eq('id', id).then(() => {});
@@ -497,6 +596,91 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...t,
       roomIds: t.roomIds.filter(rId => rId !== id)
     })));
+  };
+
+  const deleteFloor = (houseId: string, floorName: string) => {
+    const exists = houses.some(h => h.id === houseId);
+    if (!exists) return;
+
+    const roomsInFloor = rooms.filter(r => r.houseId === houseId && (r.floor || 'Floor 1') === floorName);
+
+    const newArchiveItem: ArchivedItem = {
+      id: generateId(),
+      type: 'floor',
+      name: `${floorName}`,
+      deletedAt: new Date().toISOString(),
+      houseId,
+      floorData: {
+        name: floorName,
+        rooms: roomsInFloor
+      }
+    };
+    setArchivedItems(prev => [newArchiveItem, ...prev]);
+
+    roomsInFloor.forEach(r => {
+      deleteRoom(r.id, true);
+    });
+
+    const house = houses.find(h => h.id === houseId);
+    if (house) {
+      const currentFloors = house.floors || [];
+      updateHouse(houseId, {
+        floors: currentFloors.filter(f => f !== floorName)
+      });
+    }
+  };
+
+  const restoreArchivedItem = (itemId: string) => {
+    const item = archivedItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (item.type === 'room' && item.roomData) {
+      const room = item.roomData;
+      if (user && !isSandboxMode) {
+        supabase.from('rooms').insert(mapRoomToDb(room, user.id)).then(({ error }) => {
+          if (error) console.error('insert room error during restore:', error);
+        });
+      }
+      setRooms(prev => [...prev, room]);
+
+      const house = houses.find(h => h.id === room.houseId);
+      if (house) {
+        const floorName = room.floor || 'Floor 1';
+        const currentFloors = house.floors || [];
+        if (!currentFloors.includes(floorName)) {
+          updateHouse(room.houseId, {
+            floors: [...currentFloors, floorName]
+          });
+        }
+      }
+    } else if (item.type === 'floor' && item.floorData) {
+      const { name: floorName, rooms: restoredRooms } = item.floorData;
+
+      const house = houses.find(h => h.id === item.houseId);
+      if (house) {
+        const currentFloors = house.floors || [];
+        if (!currentFloors.includes(floorName)) {
+          updateHouse(item.houseId, {
+            floors: [...currentFloors, floorName]
+          });
+        }
+      }
+
+      restoredRooms.forEach(room => {
+        if (user && !isSandboxMode) {
+          supabase.from('rooms').insert(mapRoomToDb(room, user.id)).then(({ error }) => {
+            if (error) console.error('insert restored room error:', error);
+          });
+        }
+      });
+      setRooms(prev => [...prev, ...restoredRooms]);
+    }
+
+    setArchivedItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const deleteArchivedItemPermanently = (itemId: string) => {
+    setArchivedItems(prev => prev.filter(i => i.id !== itemId));
   };
 
   const addTenant = (tenant: Omit<Tenant, 'id'>) => {
@@ -588,6 +772,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       houses, rooms, tenants, payments, activeHouseId, setActiveHouseId,
+      archivedItems, deleteFloor, restoreArchivedItem, deleteArchivedItemPermanently,
       user, loadingUser, logout, loginAsSandbox, isSandboxMode,
       currentView, setCurrentView, globalAction, setGlobalAction,
       addHouse, updateHouse, deleteHouse, restoreHouse, hardDeleteHouse,

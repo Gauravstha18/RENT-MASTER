@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Building2, Search, Users, FileText, UserCheck } from 'lucide-react';
-import { formatWithNepaliDate } from '../lib/dateUtils';
+import { formatWithNepaliDate, getRentDueInfo } from '../lib/dateUtils';
 import { Modal } from './Modal';
 import { Tenant } from '../types';
 
@@ -88,6 +88,7 @@ export function GlobalDashboard() {
                 const property = houses.find(h => h.id === tenant.houseId);
                 const tenantRooms = rooms.filter(r => tenant.roomIds.includes(r.id)).map(r => r.roomNumber).join(', ');
                 const tenantPayments = payments.filter(p => p.tenantId === tenant.id);
+                const dueInfo = getRentDueInfo(tenant, payments);
                 
                 return (
                   <div key={tenant.id} className="p-5 hover:bg-slate-50 transition-colors flex flex-col md:flex-row gap-4 items-start md:items-center justify-between cursor-pointer" onClick={() => setSelectedTenantUser(tenant)}>
@@ -104,6 +105,12 @@ export function GlobalDashboard() {
                     <div>
                       <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Room</p>
                       <p className="text-sm font-semibold text-slate-800">{tenantRooms || 'None'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-sans">Rent Due Status</p>
+                      <p className={`text-xs ${dueInfo ? dueInfo.inlineStyleClass : 'text-slate-500'}`}>
+                        {dueInfo ? dueInfo.displayText : 'Unknown'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Payments</p>
@@ -221,6 +228,7 @@ export function GlobalDashboard() {
           const property = houses.find(h => h.id === selectedTenantUser.houseId);
           const tenantRooms = rooms.filter(r => selectedTenantUser.roomIds.includes(r.id)).map(r => r.roomNumber).join(', ');
           const tenantPayments = payments.filter(p => p.tenantId === selectedTenantUser.id);
+          const dueInfo = getRentDueInfo(selectedTenantUser, payments);
           
           return (
             <div className="space-y-6">
@@ -253,6 +261,12 @@ export function GlobalDashboard() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Joined Date</p>
                   <p className="font-semibold text-slate-800">{selectedTenantUser.startDate ? formatWithNepaliDate(selectedTenantUser.startDate) : 'Unknown'}</p>
                 </div>
+                {dueInfo && (
+                  <div className="col-span-2 border border-slate-200 rounded-lg p-3 bg-slate-50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-sans">Rent Due / Overdue Status</p>
+                    <p className={`text-sm font-bold ${dueInfo.inlineStyleClass}`}>{dueInfo.displayText}</p>
+                  </div>
+                )}
               </div>
               
               <div>

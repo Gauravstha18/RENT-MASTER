@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen, MoreVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen, MoreVertical, Search } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
 import { ConfirmModal } from './ConfirmModal';
 import { Room, Tenant, RentCycle } from '../types';
-import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
+import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount, getRentDueInfo } from '../lib/dateUtils';
 
 export function Occupancy() {
   const { houses, rooms, tenants, payments, activeHouseId, updateRoom, addTenant, updateTenant, deleteTenant, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
@@ -16,6 +16,13 @@ export function Occupancy() {
 
   const [confirmDeleteTenantId, setConfirmDeleteTenantId] = useState<string | null>(null);
 
+  // Search input state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // State for editing room rent
+  const [editingRoomRentId, setEditingRoomRentId] = useState<string | null>(null);
+  const [newRentValue, setNewRentValue] = useState('');
+
   // Tenant Modal State
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
@@ -26,6 +33,7 @@ export function Occupancy() {
   const [customRent, setCustomRent] = useState('');
   const [startDate, setStartDate] = useState(() => getTodayDateStr());
   const [rentCycle, setRentCycle] = useState<RentCycle>('monthly');
+  const [rentCollectionType, setRentCollectionType] = useState<'advance' | 'arrears'>('arrears');
   const [dateOption, setDateOption] = useState<'current' | 'custom'>('current');
 
   // Meter Modal State
@@ -99,6 +107,7 @@ export function Occupancy() {
       setCustomRent(tenant.customRentAmount?.toString() || '');
       setStartDate(tenant.startDate || getTodayDateStr());
       setRentCycle(tenant.rentCycle || 'monthly');
+      setRentCollectionType(tenant.rentCollectionType || 'arrears');
       setDateOption('custom');
     } else {
       setEditingTenant(null);
@@ -109,6 +118,7 @@ export function Occupancy() {
       setCustomRent('');
       setStartDate(getTodayDateStr());
       setRentCycle('monthly');
+      setRentCollectionType('arrears');
       setDateOption('current');
     }
     setIsTenantModalOpen(true);
@@ -137,7 +147,8 @@ export function Occupancy() {
       rentMode,
       customRentAmount: rentMode === 'manual' ? Number(customRent) : undefined,
       startDate: finalStartDate,
-      rentCycle
+      rentCycle,
+      rentCollectionType
     };
 
     if (editingTenant) {
@@ -181,11 +192,21 @@ export function Occupancy() {
           <h3 className="font-bold text-slate-800 ml-1 sm:ml-2">Rooms & tenants Overview</h3>
           <p className="text-[10px] sm:text-xs text-slate-500 ml-1 sm:ml-2 mt-1">Manage occupancy and assign tenants. For room management, see the Property Layout tab.</p>
         </div>
-        <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap w-full md:w-auto">
+        <div className="flex gap-2 items-center flex-wrap md:flex-nowrap w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by room, name or phone..."
+              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white w-full transition-colors font-medium text-slate-700"
+            />
+          </div>
           <select 
             value={floorFilter}
             onChange={e => setFloorFilter(e.target.value)}
-            className="flex-1 md:flex-none p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 mr-0 sm:mr-2 font-medium"
+            className="flex-1 md:flex-none p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 font-medium cursor-pointer"
           >
             <option value="all">All Floors</option>
             {uniqueFloors.map(f => (
@@ -194,7 +215,7 @@ export function Occupancy() {
           </select>
           <button 
             onClick={() => openTenantModal()}
-            className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold"
+            className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-indigo-600 text-white px-3.5 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold cursor-pointer shrink-0"
           >
             <UserPlus className="w-4 h-4" /> Add Tenant
           </button>
@@ -216,16 +237,47 @@ export function Occupancy() {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-              {(floorsMap.get(floor) || []).map(room => {
-          const isOccupied = occupiedRoomIds.has(room.id);
-          const tenant = roomToTenantMap.get(room.id);
-          const expectedRent = tenant ? getTenantTotalRent(tenant) : 0;
-          const todayStr = getTodayDateStr();
-          const calcArgs = tenant && tenant.startDate ? calculateProRatedAmount(tenant.startDate, todayStr, expectedRent, tenant.rentCycle) : null;
-          
-          return (
-            <div key={room.id} className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${isOccupied ? 'border-emerald-100 shadow-sm' : 'border-rose-100 shadow-sm hover:border-rose-200'}`}>
-              <div className={`px-5 py-3 border-b flex justify-between items-center ${isOccupied ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              {(() => {
+                const filteredRooms = (floorsMap.get(floor) || []).filter(room => {
+                  const tenant = roomToTenantMap.get(room.id);
+                  return room.roomNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (tenant && (
+                      tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      tenant.phone.toLowerCase().includes(searchQuery.toLowerCase())
+                    ));
+                });
+
+                if (filteredRooms.length === 0) {
+                  return (
+                    <div className="col-span-full py-8 text-center text-slate-400 text-xs font-medium">
+                      No matching rooms or tenants on this floor.
+                    </div>
+                  );
+                }
+
+                return filteredRooms.map(room => {
+                  const isOccupied = occupiedRoomIds.has(room.id);
+                  const tenant = roomToTenantMap.get(room.id);
+                  const expectedRent = tenant ? getTenantTotalRent(tenant) : 0;
+                  const todayStr = getTodayDateStr();
+                  const calcArgs = tenant && tenant.startDate ? calculateProRatedAmount(tenant.startDate, todayStr, expectedRent, tenant.rentCycle) : null;
+                  const dueInfo = tenant ? getRentDueInfo(tenant, payments, todayStr) : null;
+                  
+                  return (
+                    <div key={room.id} className={`bg-white rounded-xl border-2 overflow-hidden flex flex-col transition-all ${
+                      dueInfo?.isOverdue 
+                        ? 'border-amber-300 shadow-md ring-1 ring-amber-300/30' 
+                        : isOccupied 
+                          ? 'border-emerald-100 shadow-sm' 
+                          : 'border-rose-100 shadow-sm hover:border-rose-200'
+                    }`}>
+              <div className={`px-5 py-3 border-b flex justify-between items-center ${
+                dueInfo?.isOverdue 
+                  ? 'bg-amber-100/70 border-amber-200 text-amber-900' 
+                  : isOccupied 
+                    ? 'bg-emerald-50 border-emerald-100' 
+                    : 'bg-rose-50 border-rose-100'
+              }`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-2.5 h-2.5 rounded-full ${isOccupied ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                   <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
@@ -236,9 +288,54 @@ export function Occupancy() {
               </div>
               
               <div className="p-5 flex-1 flex flex-col gap-4">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3 h-10">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Base Room Rent</span>
-                  <span className="font-mono font-bold text-slate-900">NPR {room.rentAmount}</span>
+                  {editingRoomRentId === room.id ? (
+                    <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-xs text-slate-500 font-mono font-bold">NPR</span>
+                      <input
+                        type="number"
+                        value={newRentValue}
+                        onChange={(e) => setNewRentValue(e.target.value)}
+                        className="w-20 px-1.5 py-0.5 border border-indigo-350 rounded text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = Number(newRentValue);
+                          if (!isNaN(val) && val >= 0) {
+                            updateRoom(room.id, { rentAmount: val });
+                          }
+                          setEditingRoomRentId(null);
+                        }}
+                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded font-bold text-xs transition-colors cursor-pointer"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingRoomRentId(null)}
+                        className="p-1 text-slate-400 hover:bg-slate-100 rounded font-semibold text-xs transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-slate-900">NPR {room.rentAmount}</span>
+                      <button
+                        title="Edit Base Rent"
+                        onClick={() => {
+                          setEditingRoomRentId(room.id);
+                          setNewRentValue(room.rentAmount.toString());
+                        }}
+                        className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 flex flex-col">
@@ -286,6 +383,12 @@ export function Occupancy() {
                           <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Joined Since</p>
                           <p className="font-mono text-xs font-bold text-slate-800" title={formatWithNepaliDate(tenant.startDate)}>{formatWithNepaliDate(tenant.startDate)}</p>
                         </div>
+                        {dueInfo && (
+                          <div className="col-span-2 pt-2 border-t border-slate-200">
+                            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Rent Due Status</p>
+                            <p className={`text-xs font-bold mt-0.5 ${dueInfo.inlineStyleClass}`}>{dueInfo.displayText}</p>
+                          </div>
+                        )}
                         {calcArgs && (
                           <div className="col-span-2 pt-2 mt-1 border-t border-slate-200">
                             <p className="flex justify-between items-center mb-0.5">
@@ -394,7 +497,8 @@ export function Occupancy() {
               </div>
             </div>
           )
-        })}
+        })
+              })()}
             </div>
           </div>
         ))}
@@ -403,6 +507,39 @@ export function Occupancy() {
       {/* Modals placed at the end */}
       <Modal isOpen={isTenantModalOpen} onClose={() => setIsTenantModalOpen(false)} title={editingTenant ? "Edit Tenant Profile" : "Onboard New Tenant"}>
         <form onSubmit={handleTenantSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Rent Collection Cycle Style</label>
+            <div className="grid grid-cols-2 gap-3 p-1 bg-slate-100 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setRentCollectionType('arrears')}
+                className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  rentCollectionType === 'arrears'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                In Arrears (After Month Ends)
+              </button>
+              <button
+                type="button"
+                onClick={() => setRentCollectionType('advance')}
+                className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  rentCollectionType === 'advance'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                In Advance (Upfront at Joining)
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              {rentCollectionType === 'arrears' 
+                ? 'Calculates dues only after each month/period starts and completes fully.' 
+                : 'Rent starts and is owed as due on the first day of joining.'}
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>

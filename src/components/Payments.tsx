@@ -3,7 +3,7 @@ import { DollarSign, Search, Calendar } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
 import { Payment } from '../types';
-import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
+import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount, getRentDueInfo } from '../lib/dateUtils';
 
 export function Payments() {
   const { houses, rooms, tenants, payments, activeHouseId, addPayment, updatePayment, getTenantTotalRent, globalAction, setGlobalAction } = useAppContext();
@@ -312,6 +312,7 @@ export function Payments() {
               ) : (
                 filteredLedgerItems.map(item => {
                   const { tenant, calculatedDue, nextDueDate, daysActive, electricityTotal, waterTotal, trashTotal, totalDue, status, paidAmount } = item;
+                  const dueInfo = getRentDueInfo(tenant, payments, selectedDate);
                   
                   return (
                     <tr key={tenant.id} className="hover:bg-slate-50 transition-colors">
@@ -320,8 +321,10 @@ export function Payments() {
                         {tenant.startDate && (
                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">Started: {formatWithNepaliDate(tenant.startDate)}</div>
                         )}
-                        {tenant.startDate && daysActive > 0 && (
-                          <div className="text-[10px] text-indigo-500 font-medium font-mono">Next Due: {formatWithNepaliDate(nextDueDate)}</div>
+                        {dueInfo && (
+                          <div className={`text-[10px] font-medium font-mono mt-0.5 ${dueInfo.inlineStyleClass}`}>
+                            {dueInfo.displayText}
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4">
@@ -376,14 +379,17 @@ export function Payments() {
           ) : (
             filteredLedgerItems.map(item => {
               const { tenant, calculatedDue, nextDueDate, daysActive, electricityTotal, waterTotal, trashTotal, totalDue, status, paidAmount } = item;
+              const dueInfo = getRentDueInfo(tenant, payments, selectedDate);
               
               return (
                 <div key={tenant.id} className="p-4 space-y-3 bg-white">
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="font-semibold text-slate-900">{tenant.name}</div>
-                      {tenant.startDate && daysActive > 0 && (
-                        <div className="text-[10px] text-indigo-500 font-medium font-mono">Next Due: {formatWithNepaliDate(nextDueDate)}</div>
+                      {dueInfo && (
+                        <div className={`text-[10px] font-medium font-mono mt-0.5 ${dueInfo.inlineStyleClass}`}>
+                          {dueInfo.displayText}
+                        </div>
                       )}
                     </div>
                     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${

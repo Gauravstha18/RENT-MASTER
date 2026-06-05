@@ -34,6 +34,8 @@ export function Login({ onAuthSuccess }: LoginProps) {
   // Auth state
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regUsername, setRegUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -76,47 +78,56 @@ export function Login({ onAuthSuccess }: LoginProps) {
     e.preventDefault();
     setError(null);
 
-    const cleanUsername = username.trim();
-    if (!cleanUsername) {
-      setError('Please enter a username or email.');
-      return;
-    }
+    if (isRegistering) {
+      const cleanEmail = regEmail.trim();
+      const cleanUsername = regUsername.trim();
 
-    if (!validateUsername(cleanUsername)) {
-      setError(
-        cleanUsername.includes('@')
-          ? 'Please enter a valid email address.'
-          : 'Username must be 3-20 characters long and contain only letters, numbers, underscores, or hyphens.'
-      );
-      return;
-    }
+      if (!cleanEmail) {
+        setError('Please enter a Gmail address.');
+        return;
+      }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
+      if (!cleanEmail.toLowerCase().endsWith('@gmail.com')) {
+        setError('Only Gmail accounts (ending in @gmail.com) are allowed for registration.');
+        return;
+      }
 
-    if (isRegistering && password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        setError('Please enter a valid email address.');
+        return;
+      }
 
-    setLoading(true);
+      if (!cleanUsername) {
+        setError('Please enter a username.');
+        return;
+      }
 
-    // Map username to standard email format, or use it directly if it looks like an email
-    const virtualEmail = cleanUsername.includes('@') 
-      ? cleanUsername 
-      : `${cleanUsername.toLowerCase()}@propertymanager.com`;
+      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+      if (!usernameRegex.test(cleanUsername)) {
+        setError('Username must be 3-20 characters long and contain only letters, numbers, underscores, or hyphens.');
+        return;
+      }
 
-    try {
-      if (isRegistering) {
-        // Sign up with Supabase Auth
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
         const { data, error: signUpErr } = await supabase.auth.signUp({
-          email: virtualEmail,
+          email: cleanEmail,
           password: password,
           options: {
             data: {
-              display_name: cleanUsername.includes('@') ? cleanUsername.split('@')[0] : cleanUsername
+              display_name: cleanUsername
             }
           }
         });
@@ -124,10 +135,9 @@ export function Login({ onAuthSuccess }: LoginProps) {
         if (signUpErr) throw signUpErr;
 
         if (data.user) {
-          // If auto-confirm is off they get a user object but it might not be confirmed. Let's see if session is available.
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData?.session) {
-            onAuthSuccess(data.user.id, cleanUsername.includes('@') ? cleanUsername.split('@')[0] : cleanUsername);
+            onAuthSuccess(data.user.id, cleanUsername);
           } else {
             setError(
               'User signed up successfully! However, Email Confirmation is enabled on your Supabase Project. Please check your inbox OR disable "Confirm Email" on your Supabase Dashboard under Auth -> Providers -> Email.'
@@ -136,8 +146,53 @@ export function Login({ onAuthSuccess }: LoginProps) {
         } else {
           setError('Verification required or registration returned incomplete data.');
         }
-      } else {
-        // Sign in with Supabase Auth
+      } catch (err: any) {
+        console.error('Supabase Auth Error:', err);
+        const errMsg = err.message || '';
+        if (errMsg.toLowerCase().includes('database error')) {
+          setError('Connection established successfully, but schema is missing. Click "Database Setup Schema" below to execute tables creation SQL in your Supabase Dashboard.');
+        } else if (errMsg.toLowerCase().includes('invalid login')) {
+          setError('Invalid username or password. Please try again.');
+        } else if (errMsg.toLowerCase().includes('email not confirmed')) {
+          setError('Email confirmation is enabled in your Supabase project. To login instantly, go to your Supabase Dashboard -> Auth -> Providers -> Email and turn off "Confirm email", or sign up with your real email address to trigger a confirmation.');
+        } else if (errMsg.toLowerCase().includes('security purposes') || errMsg.toLowerCase().includes('after 55 seconds')) {
+          setError('Supabase Auth Rate Limit: Please wait a moment before registering again, or disable "Confirm email" inside your Supabase Dashboard -> Auth -> Providers -> Email to bypass verification limits.');
+        } else if (errMsg.toLowerCase().includes('email logins are disabled') || errMsg.toLowerCase().includes('email provider is disabled') || errMsg.toLowerCase().includes('email provider')) {
+          setError('Email Auth provider is disabled in your Supabase project. Please go to your Supabase Dashboard -> Auth -> Providers -> Email, toggle "Enable Email Provider" to ON, and click Save.');
+        } else {
+          setError(errMsg || 'Failed to authenticate. Please check connection credentials and schema setup.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      const cleanUsername = username.trim();
+      if (!cleanUsername) {
+        setError('Please enter a username or email.');
+        return;
+      }
+
+      if (!validateUsername(cleanUsername)) {
+        setError(
+          cleanUsername.includes('@')
+            ? 'Please enter a valid email address.'
+            : 'Username must be 3-20 characters long and contain only letters, numbers, underscores, or hyphens.'
+        );
+        return;
+      }
+
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long.');
+        return;
+      }
+
+      setLoading(true);
+
+      const virtualEmail = cleanUsername.includes('@') 
+        ? cleanUsername 
+        : `${cleanUsername.toLowerCase()}@propertymanager.com`;
+
+      try {
         const { data, error: signInErr } = await supabase.auth.signInWithPassword({
           email: virtualEmail,
           password: password
@@ -148,26 +203,25 @@ export function Login({ onAuthSuccess }: LoginProps) {
         if (data.user) {
           onAuthSuccess(data.user.id, data.user.user_metadata?.display_name || (cleanUsername.includes('@') ? cleanUsername.split('@')[0] : cleanUsername));
         }
+      } catch (err: any) {
+        console.error('Supabase Auth Error:', err);
+        const errMsg = err.message || '';
+        if (errMsg.toLowerCase().includes('database error')) {
+          setError('Connection established successfully, but schema is missing. Click "Database Setup Schema" below to execute tables creation SQL in your Supabase Dashboard.');
+        } else if (errMsg.toLowerCase().includes('invalid login')) {
+          setError('Invalid username or password. Please try again.');
+        } else if (errMsg.toLowerCase().includes('email not confirmed')) {
+          setError('Email confirmation is enabled in your Supabase project. To login instantly, go to your Supabase Dashboard -> Auth -> Providers -> Email and turn off "Confirm email", or sign up with your real email address to trigger a confirmation.');
+        } else if (errMsg.toLowerCase().includes('security purposes') || errMsg.toLowerCase().includes('after 55 seconds')) {
+          setError('Supabase Auth Rate Limit: Please wait a moment before registering again, or disable "Confirm email" inside your Supabase Dashboard -> Auth -> Providers -> Email to bypass verification limits.');
+        } else if (errMsg.toLowerCase().includes('email logins are disabled') || errMsg.toLowerCase().includes('email provider is disabled') || errMsg.toLowerCase().includes('email provider')) {
+          setError('Email Auth provider is disabled in your Supabase project. Please go to your Supabase Dashboard -> Auth -> Providers -> Email, toggle "Enable Email Provider" to ON, and click Save.');
+        } else {
+          setError(errMsg || 'Failed to authenticate. Please check connection credentials and schema setup.');
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error('Supabase Auth Error:', err);
-      // Friendly messaging for common issues
-      const errMsg = err.message || '';
-      if (errMsg.toLowerCase().includes('database error')) {
-        setError('Connection established successfully, but schema is missing. Click "Database Setup Schema" below to execute tables creation SQL in your Supabase Dashboard.');
-      } else if (errMsg.toLowerCase().includes('invalid login')) {
-        setError('Invalid username or password. Please try again.');
-      } else if (errMsg.toLowerCase().includes('email not confirmed')) {
-        setError('Email confirmation is enabled in your Supabase project. To login instantly, go to your Supabase Dashboard -> Auth -> Providers -> Email and turn off "Confirm email", or sign up with your real email address to trigger a confirmation.');
-      } else if (errMsg.toLowerCase().includes('security purposes') || errMsg.toLowerCase().includes('after 55 seconds')) {
-        setError('Supabase Auth Rate Limit: Please wait a moment before registering again, or disable "Confirm email" inside your Supabase Dashboard -> Auth -> Providers -> Email to bypass verification limits.');
-      } else if (errMsg.toLowerCase().includes('email logins are disabled') || errMsg.toLowerCase().includes('email provider is disabled') || errMsg.toLowerCase().includes('email provider')) {
-        setError('Email Auth provider is disabled in your Supabase project. Please go to your Supabase Dashboard -> Auth -> Providers -> Email, toggle "Enable Email Provider" to ON, and click Save.');
-      } else {
-        setError(errMsg || 'Failed to authenticate. Please check connection credentials and schema setup.');
-      }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -315,21 +369,56 @@ export function Login({ onAuthSuccess }: LoginProps) {
               )}
 
               <div className="space-y-3">
-                <div>
-                  <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Username or Email Address</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. landlord_one"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
-                      disabled={loading}
-                    />
+                {isRegistering ? (
+                  <>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Gmail Address (must end in @gmail.com) *</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="yourname@gmail.com"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Username *</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. landlord_one"
+                          value={regUsername}
+                          onChange={(e) => setRegUsername(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Username or Email Address</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. landlord_one"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
+                        disabled={loading}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Password</label>

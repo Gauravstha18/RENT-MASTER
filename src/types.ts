@@ -37,6 +37,7 @@ export interface Tenant {
   customRentAmount?: number;
   startDate: string;        // 'YYYY-MM-DD'
   rentCycle: RentCycle;
+  rentCollectionType?: 'advance' | 'arrears';
 }
 
 export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
@@ -60,3 +61,17 @@ export interface Payment {
 }
 
 export type ViewState = 'dashboard' | 'occupancy' | 'layout' | 'payments' | 'history';
+
+export interface ArchivedItem {
+  id: string;
+  type: 'room' | 'floor';
+  name: string;
+  deletedAt: string;
+  houseId: string;
+  roomData?: Room;
+  floorData?: {
+    name: string;
+    rooms: Room[];
+  };
+}
+
