@@ -56,7 +56,12 @@ function MobileBottomNav() {
 function GlobalHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
   const { houses, activeHouseId, isSandboxMode, logout, user } = useAppContext();
   const currentHouse = houses.find(h => h.id === activeHouseId);
-  const isSharedProperty = currentHouse?.ownerEmail && currentHouse.ownerEmail !== user?.email;
+  const isSharedProperty = !!(
+    currentHouse?.ownerEmail && 
+    user?.email && 
+    currentHouse.ownerEmail.toLowerCase().trim() !== user.email.toLowerCase().trim() &&
+    currentHouse.ownerId !== user.id
+  );
 
   return (
     <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-30">

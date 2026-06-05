@@ -10,7 +10,11 @@ export function PropertyLayout() {
   const { houses, rooms, activeHouseId, updateHouse, deleteHouse, addRoom, updateRoom, deleteRoom, deleteFloor, tenants, getTenantTotalRent, globalAction, setGlobalAction, user } = useAppContext();
   
   const currentHouse = houses.find(h => h.id === activeHouseId);
-  const isOwner = user && currentHouse && (user.email === currentHouse.ownerEmail || currentHouse.ownerEmail === undefined);
+  const isOwner = user && currentHouse && (
+    (user.id && currentHouse.ownerId && user.id === currentHouse.ownerId) ||
+    (user.email && currentHouse.ownerEmail && user.email.toLowerCase().trim() === currentHouse.ownerEmail.toLowerCase().trim()) ||
+    !currentHouse.ownerEmail
+  );
   const houseRooms = rooms.filter(r => r.houseId === activeHouseId);
 
   // Filters for rooms in current floor

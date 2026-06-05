@@ -19,6 +19,7 @@ export interface House {
   sharedWithEmails?: string[];
   collaborators?: Collaborator[];
   ownerEmail?: string;
+  ownerId?: string;
 }
 
 export interface Room {

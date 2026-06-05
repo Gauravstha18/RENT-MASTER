@@ -131,7 +131,7 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
                 <span className={`text-sm font-medium flex items-center gap-2 ${activeHouseId === house.id ? 'text-indigo-400' : 'text-slate-300'}`}>
                   {house.name}
                 </span>
-                {house.ownerEmail && house.ownerEmail !== user?.email && (
+                {house.ownerEmail && user?.email && house.ownerEmail.toLowerCase().trim() !== user.email.toLowerCase().trim() && house.ownerId !== user.id && (
                   <span className="text-[9px] font-medium text-amber-500/90 mt-0.5 truncate max-w-full">
                     Shared by {house.ownerEmail}
                   </span>

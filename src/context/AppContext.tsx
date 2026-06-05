@@ -79,6 +79,7 @@ const mapHouseFromDb = (dbHouse: any): House => ({
   trashBillingType: dbHouse.trash_billing_type || 'fixed',
   isDeleted: dbHouse.is_deleted,
   ownerEmail: dbHouse.owner_email,
+  ownerId: dbHouse.owner_id,
   sharedWithEmails: Array.isArray(dbHouse.shared_with_emails) ? dbHouse.shared_with_emails : [],
   collaborators: Array.isArray(dbHouse.collaborators) ? dbHouse.collaborators : []
 });
@@ -368,32 +369,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         setIsSandboxMode(false);
 
-        // Fetch houses first (try with shared_with_emails)
-        let housesData;
-        let housesError;
-        
+        // Fetch houses first using a safe and simple select query
         const response = await supabase
           .from('houses')
-          .select('*')
-          .or(`owner_id.eq.${user.id},shared_with_emails.cs.{${user.email}},collaborators.cs.[{"email":"${user.email}"}]`);
+          .select('*');
           
-        if (response.error && (response.error.message.includes('shared_with_emails') || response.error.message.includes('collaborators') || response.error.code === '42703')) {
-          console.warn('shared_with_emails or collaborators column missing, falling back to older schema fetch');
-          setRequiresDbMigration(true);
-          // Fallback if shared_with_emails column does not exist
-          const fallback = await supabase.from('houses').select('*').eq('owner_id', user.id);
-          housesData = fallback.data;
-          housesError = fallback.error;
-        } else {
-          housesData = response.data;
-          housesError = response.error;
-        }
+        let housesData = response.data;
+        let housesError = response.error;
 
         if (housesError) {
-          // If query returns a code indicating schema is missing, fallback to sandbox
-          if (housesError.code === 'PGRST116' || housesError.message.includes('relation "public.houses" does not exist')) {
-            console.warn('Houses table not found in Supabase. Running in connection-fallback Sandbox mode.');
-            setIsSandboxMode(true);
+          // If query returns a code indicating schema is missing, set requiresDbMigration and return cleanly
+          if (housesError.code === 'PGRST116' || housesError.message.includes('relation "public.houses" does not exist') || housesError.code === '42P01' || housesError.code === '42501') {
+            console.warn('Houses table missing or inaccessible in Supabase. Triggering DB Migration UI.');
+            setRequiresDbMigration(true);
             setHouses([]);
             setRooms([]);
             setTenants([]);
@@ -406,9 +394,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (!isSubscribed) return;
 
-        // If user is brand new and has no online houses, start with clean slate
-        if (!housesData || housesData.length === 0) {
-          if (!isSubscribed) return;
+        const rawHouses = housesData || [];
+        const userEmail = (user.email || '').toLowerCase().trim();
+        
+        // Map and filter houses safely in memory to prevent any PostgREST expression parser issues
+        const cleanHouses = rawHouses.map(mapHouseFromDb).filter(h => {
+          const isOwner = h.ownerId === user.id;
+          const isOwnerEmail = h.ownerEmail && h.ownerEmail.toLowerCase().trim() === userEmail;
+          const isShared = Array.isArray(h.sharedWithEmails) && h.sharedWithEmails.some(email => typeof email === 'string' && email.toLowerCase().trim() === userEmail);
+          const isCollaborator = Array.isArray(h.collaborators) && h.collaborators.some((c: any) => c && typeof c.email === 'string' && c.email.toLowerCase().trim() === userEmail);
+          
+          return isOwner || isOwnerEmail || isShared || isCollaborator;
+        });
+
+        // If user has zero matched houses, set state to clear and exit safely without further queries
+        if (cleanHouses.length === 0) {
           setHouses([]);
           setRooms([]);
           setTenants([]);
@@ -417,19 +417,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return;
         }
 
-        const validHouseIds = housesData.map(h => h.id);
+        const validHouseIds = cleanHouses.map(h => h.id);
 
-        // Fetch remaining tables using house_ids
-        const { data: roomsData } = await supabase.from('rooms').select('*').in('house_id', validHouseIds);
-        const { data: tenantsData } = await supabase.from('tenants').select('*').in('house_id', validHouseIds);
-        const { data: paymentsData } = await supabase.from('payments').select('*').in('house_id', validHouseIds);
+        // Fetch remaining tables using valid house_ids safely
+        const [roomsResponse, tenantsResponse, paymentsResponse] = await Promise.all([
+          supabase.from('rooms').select('*').in('house_id', validHouseIds),
+          supabase.from('tenants').select('*').in('house_id', validHouseIds),
+          supabase.from('payments').select('*').in('house_id', validHouseIds)
+        ]);
 
         if (!isSubscribed) return;
 
-        const cleanHouses = (housesData || []).map(mapHouseFromDb);
-        const cleanRooms = (roomsData || []).map(mapRoomFromDb);
-        const cleanTenants = (tenantsData || []).map(mapTenantFromDb);
-        const cleanPayments = (paymentsData || []).map(mapPaymentFromDb);
+        const cleanRooms = (roomsResponse.data || []).map(mapRoomFromDb);
+        const cleanTenants = (tenantsResponse.data || []).map(mapTenantFromDb);
+        const cleanPayments = (paymentsResponse.data || []).map(mapPaymentFromDb);
 
         setHouses(cleanHouses);
         setRooms(cleanRooms);
@@ -445,9 +446,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setActiveHouseId(null);
         }
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching from Supabase database:', err);
-        setIsSandboxMode(true);
+        setRequiresDbMigration(true);
         setHouses([]);
         setRooms([]);
         setTenants([]);
