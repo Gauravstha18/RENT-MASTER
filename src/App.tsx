@@ -53,7 +53,7 @@ function MobileBottomNav() {
 }
 
 function GlobalHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
-  const { houses, activeHouseId } = useAppContext();
+  const { houses, activeHouseId, isSandboxMode, logout } = useAppContext();
   const currentHouse = houses.find(h => h.id === activeHouseId);
   return (
     <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-30">
@@ -71,7 +71,21 @@ function GlobalHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
           </p>
         </div>
       </div>
-      <div className="flex gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {isSandboxMode && (
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-flex items-center gap-1.5 bg-indigo-50/50 border border-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+              Demo Mode Active
+            </span>
+            <button
+              onClick={logout}
+              className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md cursor-pointer"
+            >
+              Login / Register
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -196,20 +210,6 @@ function AppContent() {
 
       <main className="flex-1 flex flex-col h-full bg-slate-50 w-full min-w-0 font-sans">
         <GlobalHeader toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-
-        {isSandboxMode && (
-          <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold font-mono tracking-wide shadow-md flex items-center justify-between z-20 gap-2 shrink-0 animate-in slide-in-from-top duration-300">
-            <span className="flex items-center gap-1.5">
-              ⚠️ Connection Sandbox mode: Missing tables schema in Supabase. Falling back to local data.
-            </span>
-            <button 
-              onClick={logout}
-              className="bg-amber-700 hover:bg-amber-800 text-white px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider transition-colors shrink-0"
-            >
-              Setup Database SQL Schema
-            </button>
-          </div>
-        )}
         
         <div className="flex-1 overflow-auto pb-20 md:pb-0">
           {activeHouseId === 'all' ? (

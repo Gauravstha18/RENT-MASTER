@@ -296,28 +296,21 @@ export function Login({ onAuthSuccess }: LoginProps) {
           ) : (
             /* AUTH FORM */
             <form onSubmit={handleAuth} className="space-y-4">
-              <div className="text-center pb-1">
+              <div className="text-center pb-2">
                 <h2 className="text-sm font-bold text-slate-800 tracking-tight">
-                  {isRegistering ? 'Register Portal Account' : 'Sign In'}
+                  {isRegistering ? 'Create Account' : 'Sign In'}
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  {isRegistering ? 'Create your landlord access master keys.' : 'Please access your landlord manager workspace.'}
+                  {isRegistering ? 'Register credentials to access your properties.' : 'Access your landlord workspace.'}
                 </p>
               </div>
 
               {error && (
-                <div className="p-3 bg-rose-50 border border-rose-150 text-rose-800 rounded-xl flex flex-col gap-1.5 text-xs font-semibold leading-relaxed animate-in fade-in duration-200">
+                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl flex flex-col gap-1.5 text-xs font-semibold leading-relaxed animate-in fade-in duration-200">
                   <div className="flex gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
                     <div>{error}</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={loginAsSandbox}
-                    className="self-start bg-white hover:bg-rose-100 text-rose-900 px-2 py-1 rounded border border-rose-200 text-[10px] font-bold transition-all flex items-center gap-1"
-                  >
-                    ⚡ Bypass: Switch to Local Demo Mode
-                  </button>
                 </div>
               )}
 
@@ -329,10 +322,10 @@ export function Login({ onAuthSuccess }: LoginProps) {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. landlord_one or email@example.com"
+                      placeholder="e.g. landlord_one"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
+                      className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
                       disabled={loading}
                     />
                   </div>
@@ -348,13 +341,13 @@ export function Login({ onAuthSuccess }: LoginProps) {
                       placeholder="Min 6 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
+                      className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
                       disabled={loading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-650"
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-650 cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -372,7 +365,7 @@ export function Login({ onAuthSuccess }: LoginProps) {
                         placeholder="Confirm password exactly"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
+                        className="w-full pl-9 pr-10 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-slate-50 text-slate-850 font-medium transition-all"
                         disabled={loading}
                       />
                     </div>
@@ -384,11 +377,11 @@ export function Login({ onAuthSuccess }: LoginProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-indigo-605 hover:bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? 'Authenticating Cloud Keys...' : (
+                  {loading ? 'Authenticating...' : (
                     <>
-                      {isRegistering ? 'Create New Workspace' : 'Sign In Now'}
+                      {isRegistering ? 'Register Account' : 'Sign In Now'}
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -403,9 +396,9 @@ export function Login({ onAuthSuccess }: LoginProps) {
                 <button
                   type="button"
                   onClick={loginAsSandbox}
-                  className="w-full bg-slate-50 hover:bg-slate-100 text-indigo-700 border border-slate-300 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  🚀 Launch Instant local demo
+                  🚀 Instant Local Demo Sandbox (No Database)
                 </button>
               </div>
 
@@ -419,7 +412,7 @@ export function Login({ onAuthSuccess }: LoginProps) {
                     setIsRegistering(!isRegistering);
                     setError(null);
                   }}
-                  className="text-indigo-600 font-bold hover:underline"
+                  className="text-indigo-600 font-bold hover:underline cursor-pointer"
                   disabled={loading}
                 >
                   {isRegistering ? 'Login Instead' : 'Create Account'}
