@@ -10,6 +10,7 @@ export interface House {
   electricityBillingType?: 'unit' | 'fixed';
   waterBillingType?: 'unit' | 'fixed';
   trashBillingType?: 'unit' | 'fixed';
+  isDeleted?: boolean;
 }
 
 export interface Room {
@@ -58,4 +59,4 @@ export interface Payment {
   otherCharges?: number;
 }
 
-export type ViewState = 'dashboard' | 'occupancy' | 'layout' | 'payments';
+export type ViewState = 'dashboard' | 'occupancy' | 'layout' | 'payments' | 'history';

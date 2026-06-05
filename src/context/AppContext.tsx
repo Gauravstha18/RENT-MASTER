@@ -20,6 +20,8 @@ interface AppContextType {
   addHouse: (house: Omit<House, 'id'>) => string;
   updateHouse: (id: string, house: Partial<House>) => void;
   deleteHouse: (id: string) => void;
+  restoreHouse: (id: string) => void;
+  hardDeleteHouse: (id: string) => void;
   
   addRoom: (room: Omit<Room, 'id'>) => void;
   updateRoom: (id: string, room: Partial<Room>) => void;
@@ -84,12 +86,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setHouses(prev => prev.map(h => h.id === id ? { ...h, ...data } : h));
   };
   
-  const deleteHouse = (id: string) => {
+  const restoreHouse = (id: string) => updateHouse(id, { isDeleted: false });
+  const hardDeleteHouse = (id: string) => {
     setHouses(prev => prev.filter(h => h.id !== id));
     setRooms(prev => prev.filter(r => r.houseId !== id));
     setTenants(prev => prev.filter(t => t.houseId !== id));
     setPayments(prev => prev.filter(p => p.houseId !== id));
-    if (activeHouseId === id) setActiveHouseId(houses[0]?.id !== id ? houses[0]?.id : null);
+  };
+  const deleteHouse = (id: string) => {
+    updateHouse(id, { isDeleted: true });
+    
+    // De-select if it was active
+    const nextHouses = houses.filter(h => h.id !== id && !h.isDeleted);
+    if (activeHouseId === id) {
+      setActiveHouseId(nextHouses.length > 0 ? nextHouses[0].id : null);
+    }
   };
 
   const addRoom = (room: Omit<Room, 'id'>) => setRooms(prev => [...prev, { ...room, id: generateId() }]);
@@ -125,7 +136,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider value={{
       houses, rooms, tenants, payments, activeHouseId, setActiveHouseId,
       currentView, setCurrentView, globalAction, setGlobalAction,
-      addHouse, updateHouse, deleteHouse,
+      addHouse, updateHouse, deleteHouse, restoreHouse, hardDeleteHouse,
       addRoom, updateRoom, deleteRoom,
       addTenant, updateTenant, deleteTenant,
       addPayment, updatePayment,

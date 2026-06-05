@@ -291,9 +291,10 @@ export function Payments() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
+            <thead className="text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100 flex-none sticky top-0 backdrop-blur-md bg-slate-50/90 z-10">
               <tr>
                 <th className="px-6 py-3">Tenant Name</th>
                 <th className="px-6 py-3">Ledger Details (NPR)</th>
@@ -334,7 +335,12 @@ export function Payments() {
                         )}
                       </td>
                       <td className="px-6 py-4 font-mono font-bold text-slate-800">NPR {totalDue}</td>
-                      <td className="px-6 py-4 font-mono font-medium text-slate-800">NPR {paidAmount}</td>
+                      <td className="px-6 py-4 font-mono font-medium text-slate-800">
+                        NPR {paidAmount}
+                        {paidAmount > totalDue && (
+                          <span className="text-emerald-600 text-xs ml-2 font-bold">(+{paidAmount - totalDue})</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
                           status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
@@ -361,6 +367,58 @@ export function Payments() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filteredLedgerItems.length === 0 ? (
+            <div className="px-6 py-12 text-center text-slate-400 font-medium">No statements or ledger records match filters.</div>
+          ) : (
+            filteredLedgerItems.map(item => {
+              const { tenant, calculatedDue, nextDueDate, daysActive, electricityTotal, waterTotal, trashTotal, totalDue, status, paidAmount } = item;
+              
+              return (
+                <div key={tenant.id} className="p-4 space-y-3 bg-white">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-semibold text-slate-900">{tenant.name}</div>
+                      {tenant.startDate && daysActive > 0 && (
+                        <div className="text-[10px] text-indigo-500 font-medium font-mono">Next Due: {formatWithNepaliDate(nextDueDate)}</div>
+                      )}
+                    </div>
+                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
+                      status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                      status === 'partial' ? 'bg-amber-50 text-amber-700 border-amber-100' : 
+                      'bg-rose-50 text-rose-700 border-rose-100'
+                    }`}>
+                      {status}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Total Due</p>
+                      <p className="font-mono font-bold text-slate-800 text-sm">NPR {totalDue}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Paid</p>
+                      <p className="font-mono font-bold text-slate-800 text-sm">NPR {paidAmount}</p>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => openPaymentModal(tenant.id, totalDue)}
+                    className={`w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-md text-[11px] font-bold uppercase transition-colors ${
+                      status === 'paid' ? 'text-slate-400 bg-slate-100' : 'text-white bg-indigo-600 hover:bg-indigo-700'
+                    }`}
+                  >
+                    <DollarSign className="w-3 h-3" />
+                    {status === 'paid' ? 'Update Payment' : 'Collect Payment'}
+                  </button>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 

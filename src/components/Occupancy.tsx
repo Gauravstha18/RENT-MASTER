@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen, MoreVertical } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
+import { ConfirmModal } from './ConfirmModal';
 import { Room, Tenant, RentCycle } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
 
@@ -12,6 +13,8 @@ export function Occupancy() {
 
   // Expanded Room Breakdowns state
   const [expandedBreakdowns, setExpandedBreakdowns] = useState<Record<string, boolean>>({});
+
+  const [confirmDeleteTenantId, setConfirmDeleteTenantId] = useState<string | null>(null);
 
   // Tenant Modal State
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
@@ -146,38 +149,74 @@ export function Occupancy() {
   };
 
   const handleTenantDelete = (tenantId: string) => {
-    if (window.confirm("Are you sure you want to permanently delete this tenant? This will also remove their payment history.")) {
-      deleteTenant(tenantId);
-    }
+    setConfirmDeleteTenantId(tenantId);
+  };
+
+  const executeDeleteTenant = () => {
+    if (!confirmDeleteTenantId) return;
+    deleteTenant(confirmDeleteTenantId);
+    setConfirmDeleteTenantId(null);
   };
 
   if (!activeHouseId) return null;
 
+  const [floorFilter, setFloorFilter] = useState<string>('all');
+  
+  // Group rooms by floor
+  const floorsMap = new Map<string, Room[]>();
+  houseRooms.forEach(room => {
+    const f = room.floor && room.floor.trim() !== '' ? room.floor : 'Floor 1';
+    if (!floorsMap.has(f)) {
+      floorsMap.set(f, []);
+    }
+    floorsMap.get(f)!.push(room);
+  });
+  
+  const uniqueFloors = Array.from(floorsMap.keys()).sort();
+
   return (
-    <div className="p-8 space-y-6 animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 animate-in fade-in duration-300">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
         <div>
-          <h3 className="font-bold text-slate-800 ml-2">Rooms &amp; Tenants Overview</h3>
-          <p className="text-xs text-slate-500 ml-2 mt-1">Manage occupancy and assign tenants. For room management, see the Property Layout tab.</p>
+          <h3 className="font-bold text-slate-800 ml-1 sm:ml-2">Rooms & tenants Overview</h3>
+          <p className="text-[10px] sm:text-xs text-slate-500 ml-1 sm:ml-2 mt-1">Manage occupancy and assign tenants. For room management, see the Property Layout tab.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap w-full md:w-auto">
+          <select 
+            value={floorFilter}
+            onChange={e => setFloorFilter(e.target.value)}
+            className="flex-1 md:flex-none p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 mr-0 sm:mr-2 font-medium"
+          >
+            <option value="all">All Floors</option>
+            {uniqueFloors.map(f => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
           <button 
             onClick={() => openTenantModal()}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold"
+            className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold"
           >
             <UserPlus className="w-4 h-4" /> Add Tenant
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="space-y-8">
         {houseRooms.length === 0 && (
-          <div className="col-span-full p-12 text-center bg-white rounded-xl border border-slate-200 border-dashed">
-            <p className="text-slate-400 font-medium">No rooms added to this property yet.</p>
+          <div className="p-8 sm:p-12 text-center bg-white rounded-xl border border-slate-200 border-dashed">
+            <p className="text-slate-400 font-medium text-sm sm:text-base">No rooms added to this property yet.</p>
           </div>
         )}
         
-        {houseRooms.map(room => {
+        {uniqueFloors.filter(floor => floorFilter === 'all' || floorFilter === floor).map(floor => (
+          <div key={floor} className="space-y-3 sm:space-y-4">
+            <div className="flex items-center gap-4 sticky top-0 z-20 py-2 backdrop-blur-md bg-slate-50/90 -mx-4 px-4 sm:mx-0 sm:px-0 mt-4 md:mt-0">
+              <h4 className="text-sm sm:text-base font-bold text-slate-700 uppercase tracking-wider shrink-0">{floor}</h4>
+              <div className="h-px bg-slate-200 flex-1"></div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+              {(floorsMap.get(floor) || []).map(room => {
           const isOccupied = occupiedRoomIds.has(room.id);
           const tenant = roomToTenantMap.get(room.id);
           const expectedRent = tenant ? getTenantTotalRent(tenant) : 0;
@@ -356,6 +395,9 @@ export function Occupancy() {
             </div>
           )
         })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Modals placed at the end */}
@@ -527,6 +569,21 @@ export function Occupancy() {
           </form>
         )}
       </Modal>
+
+      <ConfirmModal
+        isOpen={confirmDeleteTenantId !== null}
+        title="Delete Tenant"
+        message={
+          <>
+            Are you sure you want to permanently delete this tenant? 
+            <br/><br/>
+            <span className="text-rose-600 font-semibold">Warning: This will also remove all their associated payment history.</span>
+          </>
+        }
+        onConfirm={executeDeleteTenant}
+        onCancel={() => setConfirmDeleteTenantId(null)}
+        confirmText="Delete Tenant"
+      />
     </div>
   );
 }

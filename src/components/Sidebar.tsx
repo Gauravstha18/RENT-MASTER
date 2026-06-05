@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Users, DoorOpen, CreditCard, Building, Plus, LogOut } from 'lucide-react';
+import { Home, Users, DoorOpen, CreditCard, Building, Plus, LogOut, Archive } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { ViewState } from '../types';
 import { Modal } from './Modal';
@@ -10,18 +10,21 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentView, setView }: SidebarProps) {
-  const { houses, activeHouseId, setActiveHouseId, addHouse, addRoom } = useAppContext();
+  const { houses, activeHouseId, setActiveHouseId, addHouse, addRoom, rooms, tenants } = useAppContext();
   const [isAddHouseOpen, setIsAddHouseOpen] = useState(false);
   const [newHouseName, setNewHouseName] = useState('');
   const [newHouseAddress, setNewHouseAddress] = useState('');
   const [numberOfRooms, setNumberOfRooms] = useState('');
   const [numberOfFloors, setNumberOfFloors] = useState('');
 
+  const activeHouses = houses.filter(h => !h.isDeleted);
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'layout', label: 'Property Layout', icon: Building },
     { id: 'occupancy', label: 'Rooms & Tenants', icon: Users },
     { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'history', label: 'Archive', icon: Archive },
   ];
 
   const handleAddHouse = (e: React.FormEvent) => {
@@ -34,23 +37,25 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
     
     if (!isNaN(num) && num > 0) {
       if (!isNaN(floors) && floors > 0) {
-        // Distribute rooms evenly (mostly) across floors
-        const roomsPerFloor = Math.ceil(num / floors);
-        for (let i = 1; i <= num; i++) {
-          const floorNum = Math.ceil(i / roomsPerFloor);
-          addRoom({
-            houseId: newId,
-            roomNumber: `R${i}`,
-            rentAmount: 1000,
-            floor: `Floor ${floorNum}`
-          });
+        let roomCounter = 1;
+        for (let f = 1; f <= floors; f++) {
+          for (let r = 1; r <= num; r++) {
+            addRoom({
+              houseId: newId,
+              roomNumber: `R${roomCounter}`,
+              rentAmount: 1000,
+              floor: `Floor ${f}`
+            });
+            roomCounter++;
+          }
         }
       } else {
         for (let i = 1; i <= num; i++) {
           addRoom({
             houseId: newId,
             roomNumber: `Room ${i}`,
-            rentAmount: 1000
+            rentAmount: 1000,
+            floor: 'Floor 1'
           });
         }
       }
@@ -73,23 +78,49 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
       </div>
 
       {/* House Switcher Section */}
-      <div className="px-4 py-6 overflow-y-auto max-h-64">
+      <div className="px-4 py-6 overflow-y-auto max-h-64 border-b border-slate-800">
         <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3 block px-2">Your Properties</label>
         <div className="space-y-1">
-          {houses.map(house => (
+          <button 
+            onClick={() => setActiveHouseId('all')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+              activeHouseId === 'all'
+                ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
+                : 'text-slate-400 hover:bg-slate-800 border border-transparent'
+            }`}
+          >
+            <Home className="w-4 h-4 shrink-0" />
+            <span className="text-sm font-medium text-left flex-1 truncate">All Properties</span>
+          </button>
+          
+          <div className="h-px bg-slate-800 my-2 shadow-sm"></div>
+
+          {activeHouses.map(house => {
+            const houseRooms = rooms.filter(r => r.houseId === house.id);
+            const totalRooms = houseRooms.length;
+            const occupiedRooms = houseRooms.filter(r => tenants.some(t => t.roomIds.includes(r.id))).length;
+            const emptyRooms = totalRooms - occupiedRooms;
+
+            return (
             <button 
               key={house.id}
               onClick={() => setActiveHouseId(house.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+              className={`w-full flex items-start gap-3 px-3 py-2 rounded-md transition-colors ${
                 activeHouseId === house.id 
                   ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
                   : 'text-slate-400 hover:bg-slate-800 border border-transparent'
               }`}
             >
-              <span className="text-sm font-medium text-left flex-1 truncate">{house.name}</span>
-              {activeHouseId === house.id && <span className="ml-auto text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold">Active</span>}
+              <div className="flex-1 flex flex-col justify-center items-start text-left truncate overflow-hidden pr-2">
+                <span className={`text-sm font-medium ${activeHouseId === house.id ? 'text-indigo-400' : 'text-slate-300'}`}>{house.name}</span>
+                <span className="text-[10px] mt-0.5 mt-1 block truncate w-full">
+                  <span className="text-white font-bold">{totalRooms}</span> <span className="opacity-70">Rms</span> · <span className="text-emerald-400 font-bold">{occupiedRooms}</span> <span className="text-emerald-400/70">F</span> / <span className="text-rose-400 font-bold">{emptyRooms}</span> <span className="text-rose-400/70">E</span>
+                </span>
+              </div>
+              {activeHouseId === house.id && <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold shrink-0 mt-0.5">Active</span>}
             </button>
-          ))}
+            )
+          })}
           <button 
             onClick={() => setIsAddHouseOpen(true)}
             className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 rounded-md border border-dashed border-slate-700 mt-2"
@@ -100,26 +131,30 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="px-4 flex-1">
-        <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3 block px-2">Management</label>
-        <ul className="space-y-1">
-          {menuItems.map((item) => (
-            <li key={item.id}>
-              <button
-                onClick={() => setView(item.id as ViewState)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                  currentView === item.id 
-                    ? 'bg-slate-800 text-white' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span>{item.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {activeHouseId !== 'all' ? (
+        <nav className="px-4 flex-1">
+          <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3 block px-2">Management</label>
+          <ul className="space-y-1">
+            {menuItems.map((item) => (
+              <li key={item.id}>
+                <button
+                  onClick={() => setView(item.id as ViewState)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    currentView === item.id 
+                      ? 'bg-slate-800 text-white' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : (
+        <div className="flex-1" style={{ height: '310.667px' }}></div>
+      )}
 
       <div className="p-4 border-t border-slate-800 bg-slate-900/50">
         <div className="flex items-center gap-3">
@@ -156,7 +191,7 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Number of Rooms</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rooms per Floor</label>
               <input 
                 type="number" 
                 value={numberOfRooms}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building, Image as ImageIcon, DoorOpen, Plus, Edit2, Trash2, Info, Search } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
+import { ConfirmModal } from './ConfirmModal';
 import { Room } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount } from '../lib/dateUtils';
 
@@ -18,6 +19,26 @@ export function PropertyLayout() {
   // Modal states
   const [isImageUrlModalOpen, setIsImageUrlModalOpen] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
+  
+  const [isBulkRentModalOpen, setIsBulkRentModalOpen] = useState(false);
+  const [bulkRentAmount, setBulkRentAmount] = useState('');
+
+  const handleBulkRentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeFloor || !bulkRentAmount) return;
+    
+    const rentValue = Number(bulkRentAmount);
+    if (isNaN(rentValue) || rentValue < 0) return;
+
+    // Update all rooms in the active floor
+    const roomsInFloor = houseRooms.filter(r => (r.floor || 'Floor 1') === activeFloor);
+    roomsInFloor.forEach(room => {
+      updateRoom(room.id, { rentAmount: rentValue });
+    });
+    
+    setIsBulkRentModalOpen(false);
+    setBulkRentAmount('');
+  };
 
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -33,6 +54,47 @@ export function PropertyLayout() {
 
   const [isFloorModalOpen, setIsFloorModalOpen] = useState(false);
   const [newFloorName, setNewFloorName] = useState('');
+  const [newFloorRoomsCount, setNewFloorRoomsCount] = useState<string>('');
+  const [newFloorBaseRent, setNewFloorBaseRent] = useState<string>('');
+
+  const [confirmDeleteFloorName, setConfirmDeleteFloorName] = useState<string | null>(null);
+  const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
+
+  // Modals for editing property and floor
+  const [isEditPropertyOpen, setIsEditPropertyOpen] = useState(false);
+  const [editPropertyName, setEditPropertyName] = useState('');
+  const [editPropertyAddress, setEditPropertyAddress] = useState('');
+
+  const handlePropertySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentHouse) return;
+    updateHouse(currentHouse.id, { name: editPropertyName, address: editPropertyAddress });
+    setIsEditPropertyOpen(false);
+  };
+
+  const [isEditFloorOpen, setIsEditFloorOpen] = useState(false);
+  const [editFloorName, setEditFloorName] = useState('');
+
+  const handleFloorEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentHouse || !activeFloor) return;
+    const cleanFloor = editFloorName.trim();
+    if (!cleanFloor || cleanFloor === activeFloor) return;
+
+    // Update house floors array
+    const currentFloors = currentHouse.floors || [];
+    const newFloors = currentFloors.map(f => f === activeFloor ? cleanFloor : f);
+    updateHouse(currentHouse.id, { floors: newFloors });
+
+    // Update all rooms in this floor
+    const roomsInFloor = houseRooms.filter(r => (r.floor || 'Floor 1') === activeFloor);
+    roomsInFloor.forEach(r => {
+      updateRoom(r.id, { floor: cleanFloor });
+    });
+
+    setActiveFloor(cleanFloor);
+    setIsEditFloorOpen(false);
+  };
 
   const [isUtilityModalOpen, setIsUtilityModalOpen] = useState(false);
   const [elecRate, setElecRate] = useState('');
@@ -78,15 +140,44 @@ export function PropertyLayout() {
 
   const handleAddFloor = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFloorName.trim()) return;
+    const cleanFloorName = newFloorName.trim();
+    if (!cleanFloorName) return;
     
     const currentFloors = currentHouse.floors || [];
-    if (!currentFloors.includes(newFloorName.trim())) {
-      updateHouse(currentHouse.id, { floors: [...currentFloors, newFloorName.trim()] });
+    if (!currentFloors.includes(cleanFloorName)) {
+      updateHouse(currentHouse.id, { floors: [...currentFloors, cleanFloorName] });
     }
-    setActiveFloor(newFloorName.trim());
+    
+    // Auto generate rooms if count is provided
+    const count = parseInt(newFloorRoomsCount, 10);
+    if (!isNaN(count) && count > 0) {
+      const baseRent = Number(newFloorBaseRent) || 0;
+      for (let i = 1; i <= count; i++) {
+        // e.g. if the floor is "Floor 1", rooms will be "101", "102" etc.
+        // Let's try to extract a number from floor name
+        const floorMatch = cleanFloorName.match(/\d+/);
+        let prefix = '';
+        if (floorMatch) {
+           prefix = floorMatch[0];
+        } else {
+           prefix = cleanFloorName.substring(0, 1).toUpperCase();
+        }
+        const roomNumber = `${prefix}${i.toString().padStart(2, '0')}`;
+        
+        addRoom({
+          houseId: currentHouse.id,
+          roomNumber: roomNumber,
+          rentAmount: baseRent,
+          floor: cleanFloorName
+        });
+      }
+    }
+
+    setActiveFloor(cleanFloorName);
     setIsFloorModalOpen(false);
     setNewFloorName('');
+    setNewFloorRoomsCount('');
+    setNewFloorBaseRent('');
   };
 
   const openUtilityModal = () => {
@@ -154,41 +245,39 @@ export function PropertyLayout() {
   };
 
   const handleDeleteFloor = (floorName: string) => {
+    setConfirmDeleteFloorName(floorName);
+  };
+
+  const executeDeleteFloor = () => {
+    if (!currentHouse || !confirmDeleteFloorName) return;
+    const floorName = confirmDeleteFloorName;
     const roomsInFloor = houseRooms.filter(r => (r.floor || 'Floor 1') === floorName);
-    const hasOccupiedRoom = roomsInFloor.some(r => tenants.some(t => t.roomIds.includes(r.id)));
     
-    if (hasOccupiedRoom) {
-      alert("Cannot delete floor because it has occupied rooms. Please unassign tenants first.");
-      return;
-    }
+    roomsInFloor.forEach(r => deleteRoom(r.id));
     
-    if (window.confirm(`Are you sure you want to delete ${floorName}? This will also delete all ${roomsInFloor.length} rooms on this floor. This action cannot be undone.`)) {
-      roomsInFloor.forEach(r => deleteRoom(r.id));
-      
-      const currentFloors = currentHouse.floors || [];
-      updateHouse(currentHouse.id, {
-        floors: currentFloors.filter(f => f !== floorName)
-      });
-      
-      if (activeFloor === floorName) {
-        setActiveFloor(uniqueFloors.find(f => f !== floorName) || null);
-      }
+    const currentFloors = currentHouse.floors || [];
+    updateHouse(currentHouse.id, {
+      floors: currentFloors.filter(f => f !== floorName)
+    });
+    
+    if (activeFloor === floorName) {
+      setActiveFloor(uniqueFloors.find(f => f !== floorName) || null);
     }
+    setConfirmDeleteFloorName(null);
   };
 
   const handleRoomDelete = (roomId: string) => {
-    const isOccupied = tenants.some(t => t.roomIds.includes(roomId));
-    if (isOccupied) {
-      alert("Please unassign the tenant from this room before deleting.");
-      return;
-    }
-    if (window.confirm("Are you sure you want to delete this room?")) {
-      deleteRoom(roomId);
-    }
+    setConfirmDeleteRoomId(roomId);
+  };
+
+  const executeDeleteRoom = () => {
+    if (!confirmDeleteRoomId) return;
+    deleteRoom(confirmDeleteRoomId);
+    setConfirmDeleteRoomId(null);
   };
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in duration-300">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 animate-in fade-in duration-300">
       
       {/* Property Cover Header */}
       <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
@@ -223,7 +312,20 @@ export function PropertyLayout() {
         </div>
         <div className="p-6 md:p-8 flex justify-between items-end">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{currentHouse.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-slate-900">{currentHouse.name}</h1>
+              <button 
+                onClick={() => {
+                  setEditPropertyName(currentHouse.name);
+                  setEditPropertyAddress(currentHouse.address || '');
+                  setIsEditPropertyOpen(true);
+                }} 
+                className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                title="Edit Property Info"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            </div>
             <p className="text-slate-500 mt-1">{currentHouse.address}</p>
           </div>
           <div className="text-right">
@@ -308,7 +410,24 @@ export function PropertyLayout() {
                       <h3 className="font-bold text-xl text-slate-800">{activeFloor}</h3>
                       <p className="text-xs text-slate-400 font-medium">{floorsMap.get(activeFloor)?.length || 0} Rooms configured</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <button 
+                        onClick={() => {
+                          setEditFloorName(activeFloor);
+                          setIsEditFloorOpen(true);
+                        }}
+                        className="text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors"
+                        title="Rename Floor"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> Rename
+                      </button>
+                      <button 
+                        onClick={() => setIsBulkRentModalOpen(true)}
+                        className="text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors"
+                        title="Edit Base Rent for Floor"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> Bulk Rent
+                      </button>
                       <button 
                         onClick={() => handleDeleteFloor(activeFloor)}
                         className="text-xs font-bold text-rose-500 bg-rose-50 hover:bg-rose-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors"
@@ -625,6 +744,29 @@ export function PropertyLayout() {
         </form>
       </Modal>
 
+      <Modal isOpen={isBulkRentModalOpen} onClose={() => setIsBulkRentModalOpen(false)} title={`Update Rent for ${activeFloor}`}>
+        <form onSubmit={handleBulkRentSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">New Base Rent Amount (NPR)</label>
+            <input 
+              required
+              type="number" 
+              value={bulkRentAmount}
+              onChange={e => setBulkRentAmount(e.target.value)}
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              min="0"
+              step="any"
+              placeholder="e.g. 5000"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">This will change the base rent for ALL rooms on this floor.</p>
+          </div>
+          <div className="pt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setIsBulkRentModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">Update Rent</button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal isOpen={isFloorModalOpen} onClose={() => setIsFloorModalOpen(false)} title="Add New Floor">
         <form onSubmit={handleAddFloor} className="space-y-4">
           <div>
@@ -637,6 +779,31 @@ export function PropertyLayout() {
               className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               placeholder="e.g. Floor 3, Ground Floor"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Number of Rooms <span className="text-slate-400 font-normal text-[10px]">(optional)</span></label>
+              <input 
+                type="number" 
+                min="0"
+                value={newFloorRoomsCount}
+                onChange={e => setNewFloorRoomsCount(e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Default Base Rent <span className="text-slate-400 font-normal text-[10px]">(optional)</span></label>
+              <input 
+                type="number" 
+                min="0"
+                value={newFloorBaseRent}
+                onChange={e => setNewFloorBaseRent(e.target.value)}
+                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. 5000"
+                disabled={!newFloorRoomsCount || newFloorRoomsCount === '0'}
+              />
+            </div>
           </div>
           <div className="pt-4 flex justify-end gap-2">
             <button type="button" onClick={() => setIsFloorModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
@@ -689,6 +856,84 @@ export function PropertyLayout() {
           </div>
         </form>
       </Modal>
+      <Modal isOpen={isEditPropertyOpen} onClose={() => setIsEditPropertyOpen(false)} title="Edit Property Information">
+        <form onSubmit={handlePropertySubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Property Name</label>
+            <input 
+              required
+              type="text" 
+              value={editPropertyName}
+              onChange={e => setEditPropertyName(e.target.value)}
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+            <input 
+              type="text" 
+              value={editPropertyAddress}
+              onChange={e => setEditPropertyAddress(e.target.value)}
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div className="pt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setIsEditPropertyOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">Save Changes</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isEditFloorOpen} onClose={() => setIsEditFloorOpen(false)} title="Rename Floor">
+        <form onSubmit={handleFloorEditSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Floor Name</label>
+            <input 
+              required
+              type="text" 
+              value={editFloorName}
+              onChange={e => setEditFloorName(e.target.value)}
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div className="pt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setIsEditFloorOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium">Save Name</button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={confirmDeleteFloorName !== null}
+        title="Delete Floor"
+        message={
+          <>
+            Are you sure you want to delete <strong>{confirmDeleteFloorName}</strong>? 
+            This will also permanently delete all its rooms. 
+            <br/><br/>
+            <span className="text-rose-600 font-semibold">Warning: Any tenants assigned to these rooms will be forcibly unassigned from them.</span>
+          </>
+        }
+        onConfirm={executeDeleteFloor}
+        onCancel={() => setConfirmDeleteFloorName(null)}
+        confirmText="Delete Floor"
+      />
+
+      <ConfirmModal
+        isOpen={confirmDeleteRoomId !== null}
+        title="Delete Room"
+        message={
+          <>
+            Are you sure you want to delete this room?
+            <br/><br/>
+            <span className="text-rose-600 font-semibold">Warning: If a tenant is assigned to this room, they will be forcibly unassigned from it.</span>
+          </>
+        }
+        onConfirm={executeDeleteRoom}
+        onCancel={() => setConfirmDeleteRoomId(null)}
+        confirmText="Delete Room"
+      />
+
     </div>
   );
 }

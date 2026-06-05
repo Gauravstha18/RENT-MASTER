@@ -1,0 +1,213 @@
+{
+  "entities": {
+    "House": {
+      "title": "House",
+      "description": "A property managed by a user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "User ID of the property manager."
+        },
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "imageUrl": {
+          "type": "string"
+        },
+        "floors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "electricityRate": {
+          "type": "number"
+        },
+        "waterRate": {
+          "type": "number"
+        },
+        "trashCollectionRate": {
+          "type": "number"
+        },
+        "electricityBillingType": {
+          "type": "string",
+          "enum": ["unit", "fixed"]
+        },
+        "waterBillingType": {
+          "type": "string",
+          "enum": ["unit", "fixed"]
+        },
+        "trashBillingType": {
+          "type": "string",
+          "enum": ["unit", "fixed"]
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "number"
+        }
+      },
+      "required": ["ownerId", "name", "address"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "A rentable room or unit within a house.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string"
+        },
+        "houseId": {
+          "type": "string"
+        },
+        "roomNumber": {
+          "type": "string"
+        },
+        "rentAmount": {
+          "type": "number"
+        },
+        "floor": {
+          "type": "string"
+        },
+        "previousElectricityReading": {
+          "type": "number"
+        },
+        "currentElectricityReading": {
+          "type": "number"
+        },
+        "previousWaterReading": {
+          "type": "number"
+        },
+        "currentWaterReading": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "number"
+        }
+      },
+      "required": ["ownerId", "houseId", "roomNumber", "rentAmount"]
+    },
+    "Tenant": {
+      "title": "Tenant",
+      "description": "A person renting one or more rooms in a house.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string"
+        },
+        "houseId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "roomIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rentMode": {
+          "type": "string",
+          "enum": ["auto", "manual"]
+        },
+        "customRentAmount": {
+          "type": "number"
+        },
+        "startDate": {
+          "type": "string"
+        },
+        "rentCycle": {
+          "type": "string",
+          "enum": ["weekly", "monthly", "yearly"]
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "number"
+        }
+      },
+      "required": ["ownerId", "houseId", "name", "phone", "roomIds", "rentMode", "startDate", "rentCycle"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A payment record for a tenant.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string"
+        },
+        "houseId": {
+          "type": "string"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "month": {
+          "type": "string"
+        },
+        "amountDue": {
+          "type": "number"
+        },
+        "amountPaid": {
+          "type": "number"
+        },
+        "paymentDate": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["paid", "unpaid", "partial"]
+        },
+        "baseRent": {
+          "type": "number"
+        },
+        "electricityCharge": {
+          "type": "number"
+        },
+        "waterCharge": {
+          "type": "number"
+        },
+        "trashCharge": {
+          "type": "number"
+        },
+        "otherCharges": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "number"
+        }
+      },
+      "required": ["ownerId", "houseId", "tenantId", "month", "amountDue", "amountPaid", "status"]
+    }
+  },
+  "firestore": {
+    "houses": {
+      "schema": { "$ref": "#/entities/House" },
+      "description": "Collection of houses."
+    },
+    "rooms": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Collection of rooms."
+    },
+    "tenants": {
+      "schema": { "$ref": "#/entities/Tenant" },
+      "description": "Collection of tenants."
+    },
+    "payments": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Collection of payments."
+    }
+  }
+}

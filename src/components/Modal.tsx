@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { Building2, X } from 'lucide-react';
+import { Building2, X, LucideIcon } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  icon?: LucideIcon;
   children: React.ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, icon: Icon = Building2, children }: ModalProps) {
   // Prevent body scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -33,7 +34,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-indigo-600" />
+            <Icon className="w-5 h-5 text-indigo-600" />
             {title}
           </h2>
           <button
