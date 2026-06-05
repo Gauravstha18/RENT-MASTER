@@ -29,6 +29,8 @@ interface AppContextType {
   logout: () => void;
   loginAsSandbox: () => void;
   isSandboxMode: boolean; // True if supabase tables are missing or not setup yet
+  requiresDbMigration: boolean;
+  setRequiresDbMigration: (req: boolean) => void;
   
   // Global View and Actions
   currentView: ViewState;
@@ -217,6 +219,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [isSandboxMode, setIsSandboxMode] = useState(false);
+  const [requiresDbMigration, setRequiresDbMigration] = useState(false);
 
   // To solve async state update lag when creating a property and room simultaneously
   const recentlyCreatedHouseIds = React.useRef<Set<string>>(new Set());
@@ -376,6 +379,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           
         if (response.error && (response.error.message.includes('shared_with_emails') || response.error.message.includes('collaborators') || response.error.code === '42703')) {
           console.warn('shared_with_emails or collaborators column missing, falling back to older schema fetch');
+          setRequiresDbMigration(true);
           // Fallback if shared_with_emails column does not exist
           const fallback = await supabase.from('houses').select('*').eq('owner_id', user.id);
           housesData = fallback.data;
@@ -807,6 +811,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       houses, rooms, tenants, payments, activeHouseId, setActiveHouseId,
       archivedItems, deleteFloor, restoreArchivedItem, deleteArchivedItemPermanently,
       user, loadingUser, logout, loginAsSandbox, isSandboxMode,
+      requiresDbMigration, setRequiresDbMigration,
       currentView, setCurrentView, globalAction, setGlobalAction,
       addHouse, updateHouse, deleteHouse, restoreHouse, hardDeleteHouse,
       addRoom, updateRoom, deleteRoom,

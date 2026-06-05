@@ -11,7 +11,7 @@ import { History } from './components/History';
 import { MobileFAB } from './components/MobileFAB';
 import { GlobalDashboard } from './components/GlobalDashboard';
 import { Modal } from './components/Modal';
-import { Home, Users, CreditCard, Building, Archive } from 'lucide-react';
+import { Home, Users, CreditCard, Building, Archive, ShieldAlert } from 'lucide-react';
 import { ViewState } from './types';
 
 function MobileBottomNav() {
@@ -53,8 +53,10 @@ function MobileBottomNav() {
 }
 
 function GlobalHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
-  const { houses, activeHouseId, isSandboxMode, logout } = useAppContext();
+  const { houses, activeHouseId, isSandboxMode, logout, user } = useAppContext();
   const currentHouse = houses.find(h => h.id === activeHouseId);
+  const isSharedProperty = currentHouse?.ownerEmail && currentHouse.ownerEmail !== user?.email;
+
   return (
     <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-30">
       <div className="flex items-center gap-3 relative z-20">
@@ -62,12 +64,20 @@ function GlobalHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
           <Menu className="w-5 h-5" />
         </button>
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate max-w-[150px] sm:max-w-xs">
-            {activeHouseId === 'all' ? 'All Properties' : (currentHouse?.name || 'No Property Selected')} 
-            <span className="hidden sm:inline"> Dashboard</span>
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate max-w-[150px] sm:max-w-xs">
+              {activeHouseId === 'all' ? 'All Properties' : (currentHouse?.name || 'No Property Selected')} 
+              <span className="hidden sm:inline"> Dashboard</span>
+            </h2>
+            {isSharedProperty && (
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wider rounded-full border border-amber-200 hidden sm:inline-block">
+                Shared
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 truncate max-w-[150px] sm:max-w-xs">
-            {activeHouseId === 'all' ? 'Unified Portfolio Overview' : (currentHouse?.address || 'Add a property')}
+            {activeHouseId === 'all' ? 'Unified Portfolio Overview' : 
+             (isSharedProperty ? `Shared by ${currentHouse.ownerEmail}` : (currentHouse?.address || 'Add a property'))}
           </p>
         </div>
       </div>
@@ -112,6 +122,7 @@ function AppContent() {
     user, 
     loadingUser, 
     isSandboxMode, 
+    requiresDbMigration,
     logout,
     houses,
     addHouse,
@@ -207,7 +218,28 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative flex-col">
+      {requiresDbMigration && !isSandboxMode && (
+        <div className="bg-rose-50 border-b border-rose-200 px-4 py-3 flex items-start gap-3 flex-shrink-0 z-50 shadow-sm relative">
+          <div className="bg-rose-100 p-1.5 rounded-full mt-0.5 shrink-0">
+            <ShieldAlert className="w-4 h-4 text-rose-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-rose-900">Database Schema Update Required</h3>
+            <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+              Property sharing features depend on new database columns. Please run the provided SQL setup script in your Supabase SQL Editor. 
+              <br/><span className="font-semibold">Shared properties will not load correctly until this is completed.</span>
+            </p>
+          </div>
+          <button 
+            onClick={() => setRequiresDbMigration(false)}
+            className="p-1 hover:bg-rose-100 rounded-md text-rose-500 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      <div className="flex flex-1 overflow-hidden relative">
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (
         <div 
@@ -318,6 +350,7 @@ function AppContent() {
           </div>
         </form>
       </Modal>
+      </div>
     </div>
   );
 }
