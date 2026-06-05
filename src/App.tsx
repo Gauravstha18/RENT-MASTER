@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Loader2 } from 'lucide-react';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { PropertyLayout } from './components/PropertyLayout';
@@ -9,6 +10,7 @@ import { Payments } from './components/Payments';
 import { History } from './components/History';
 import { MobileFAB } from './components/MobileFAB';
 import { GlobalDashboard } from './components/GlobalDashboard';
+import { Modal } from './components/Modal';
 import { Home, Users, CreditCard, Building, Archive } from 'lucide-react';
 import { ViewState } from './types';
 
@@ -89,8 +91,92 @@ function GlobalFooter() {
 }
 
 function AppContent() {
-  const { currentView, setCurrentView, activeHouseId } = useAppContext();
+  const { 
+    currentView, 
+    setCurrentView, 
+    activeHouseId, 
+    user, 
+    loadingUser, 
+    isSandboxMode, 
+    logout,
+    houses,
+    addHouse,
+    addRoom
+  } = useAppContext();
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
+  
+  // Onboarding first property state
+  const [isFirstPropertyModalOpen, setIsFirstPropertyModalOpen] = useState(false);
+  const [newHouseName, setNewHouseName] = useState('');
+  const [newHouseAddress, setNewHouseAddress] = useState('');
+  const [numberOfRooms, setNumberOfRooms] = useState('');
+  const [numberOfFloors, setNumberOfFloors] = useState('');
+
+  const activeHouses = houses.filter(h => !h.isDeleted);
+
+  // Auto show popup when user is logged in but has no properties
+  React.useEffect(() => {
+    if (user && !loadingUser && activeHouses.length === 0) {
+      setIsFirstPropertyModalOpen(true);
+    } else {
+      setIsFirstPropertyModalOpen(false);
+    }
+  }, [user, loadingUser, activeHouses.length]);
+
+  const handleAddHouse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHouseName.trim()) return;
+    const newId = addHouse({ name: newHouseName, address: newHouseAddress });
+    
+    const num = parseInt(numberOfRooms, 10);
+    const floors = parseInt(numberOfFloors, 10);
+    
+    if (!isNaN(num) && num > 0) {
+      if (!isNaN(floors) && floors > 0) {
+        let roomCounter = 1;
+        for (let f = 1; f <= floors; f++) {
+          for (let r = 1; r <= num; r++) {
+            addRoom({
+              houseId: newId,
+              roomNumber: `R${roomCounter}`,
+              rentAmount: 1000,
+              floor: `Floor ${f}`
+            });
+            roomCounter++;
+          }
+        }
+      } else {
+        for (let i = 1; i <= num; i++) {
+          addRoom({
+            houseId: newId,
+            roomNumber: `Room ${i}`,
+            rentAmount: 1000,
+            floor: 'Floor 1'
+          });
+        }
+      }
+    }
+
+    setNewHouseName('');
+    setNewHouseAddress('');
+    setNumberOfRooms('');
+    setNumberOfFloors('');
+    setIsFirstPropertyModalOpen(false);
+  };
+
+  if (loadingUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 select-none font-sans">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <p className="text-slate-400 text-xs mt-3 font-mono text-center">Synchronizing cloud files...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onAuthSuccess={() => {}} />;
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
@@ -108,8 +194,22 @@ function AppContent() {
         <Sidebar currentView={currentView} setView={(view) => { setCurrentView(view); if (window.innerWidth <= 768) setIsSidebarOpen(false); }} />
       </div>
 
-      <main className="flex-1 flex flex-col h-full bg-slate-50 w-full min-w-0">
+      <main className="flex-1 flex flex-col h-full bg-slate-50 w-full min-w-0 font-sans">
         <GlobalHeader toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+
+        {isSandboxMode && (
+          <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold font-mono tracking-wide shadow-md flex items-center justify-between z-20 gap-2 shrink-0 animate-in slide-in-from-top duration-300">
+            <span className="flex items-center gap-1.5">
+              ⚠️ Connection Sandbox mode: Missing tables schema in Supabase. Falling back to local data.
+            </span>
+            <button 
+              onClick={logout}
+              className="bg-amber-700 hover:bg-amber-800 text-white px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider transition-colors shrink-0"
+            >
+              Setup Database SQL Schema
+            </button>
+          </div>
+        )}
         
         <div className="flex-1 overflow-auto pb-20 md:pb-0">
           {activeHouseId === 'all' ? (
@@ -135,6 +235,75 @@ function AppContent() {
 
       {/* Mobile Floating Action Button Menu overlay (optional now that we have bottom nav, but keeping it for context actions) */}
       <MobileFAB />
+
+      {/* Onboarding first property modal */}
+      <Modal 
+        isOpen={isFirstPropertyModalOpen} 
+        onClose={() => setIsFirstPropertyModalOpen(false)} 
+        title="Create Your First Property"
+      >
+        <div className="mb-4">
+          <p className="text-slate-600 text-xs leading-relaxed">
+            Let's get started by defining your first real estate asset. You can automatically pre-generate individual rooms below or leave them blank to do so manually.
+          </p>
+        </div>
+        <form onSubmit={handleAddHouse} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Property Name *</label>
+            <input 
+              required
+              type="text" 
+              value={newHouseName}
+              onChange={e => setNewHouseName(e.target.value)}
+              className="w-full p-2 border border-slate-200 text-slate-800 text-xs font-medium rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50"
+              placeholder="e.g. My Apartment Complex"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Address Location</label>
+            <input 
+              type="text" 
+              value={newHouseAddress}
+              onChange={e => setNewHouseAddress(e.target.value)}
+              className="w-full p-2 border border-slate-200 text-slate-800 text-xs font-medium rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50"
+              placeholder="e.g. Kathmandu, Nepal"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Rooms per Floor</label>
+              <input 
+                type="number" 
+                value={numberOfRooms}
+                onChange={e => setNumberOfRooms(e.target.value)}
+                min="0"
+                className="w-full p-2 border border-slate-200 text-slate-800 text-xs font-medium rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50"
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Number of Floors</label>
+              <input 
+                type="number" 
+                value={numberOfFloors}
+                onChange={e => setNumberOfFloors(e.target.value)}
+                min="0"
+                className="w-full p-2 border border-slate-200 text-slate-800 text-xs font-medium rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50"
+                placeholder="e.g. 3"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400">Pro Tip: Rooms will be automatically mapped under floors (e.g. R1, R2, R3...)</p>
+          <div className="pt-4 flex justify-end gap-2 border-t border-slate-100">
+            <button 
+              type="submit" 
+              className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-md"
+            >
+              🚀 Launch Property Space
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

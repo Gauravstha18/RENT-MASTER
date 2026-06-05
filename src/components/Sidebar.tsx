@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentView, setView }: SidebarProps) {
-  const { houses, activeHouseId, setActiveHouseId, addHouse, addRoom, rooms, tenants } = useAppContext();
+  const { houses, activeHouseId, setActiveHouseId, addHouse, addRoom, rooms, tenants, user, logout } = useAppContext();
   const [isAddHouseOpen, setIsAddHouseOpen] = useState(false);
   const [newHouseName, setNewHouseName] = useState('');
   const [newHouseAddress, setNewHouseAddress] = useState('');
@@ -156,14 +156,23 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
         <div className="flex-1" style={{ height: '310.667px' }}></div>
       )}
 
-      <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-white">AD</div>
-          <div className="flex-1">
-            <p className="text-xs text-white font-medium">Admin User</p>
-            <p className="text-[10px] text-slate-500">Master Account</p>
+      <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs text-white font-bold shrink-0">
+            {user?.displayName ? user.displayName.substring(0, 2).toUpperCase() : 'US'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-white font-bold truncate">{user?.displayName || 'User'}</p>
+            <p className="text-[10px] text-slate-500 font-mono truncate">@{user?.displayName?.toLowerCase() || 'user'}</p>
           </div>
         </div>
+        <button 
+          onClick={logout} 
+          title="Sign Out" 
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
 
       <Modal isOpen={isAddHouseOpen} onClose={() => setIsAddHouseOpen(false)} title="Add New Property">
