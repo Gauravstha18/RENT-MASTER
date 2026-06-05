@@ -361,11 +361,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         setIsSandboxMode(false);
 
-        // Fetch houses first (owned OR shared with email)
-        const { data: housesData, error: housesError } = await supabase
+        // Fetch houses first (try with shared_with_emails)
+        let housesData;
+        let housesError;
+        
+        const response = await supabase
           .from('houses')
           .select('*')
           .or(`owner_id.eq.${user.id},shared_with_emails.cs.{${user.email}}`);
+          
+        if (response.error && (response.error.message.includes('shared_with_emails') || response.error.code === '42703')) {
+          console.warn('shared_with_emails column missing, falling back to older schema fetch');
+          // Fallback if shared_with_emails column does not exist
+          const fallback = await supabase.from('houses').select('*').eq('owner_id', user.id);
+          housesData = fallback.data;
+          housesError = fallback.error;
+        } else {
+          housesData = response.data;
+          housesError = response.error;
+        }
 
         if (housesError) {
           // If query returns a code indicating schema is missing, fallback to sandbox
