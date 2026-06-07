@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen, MoreVertical, Search } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
@@ -26,8 +26,11 @@ export function Occupancy() {
   // Tenant Modal State
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [selectedHouseId, setSelectedHouseId] = useState(activeHouseId);
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [rentMode, setRentMode] = useState<'auto' | 'manual'>('auto');
   const [customRent, setCustomRent] = useState('');
@@ -102,6 +105,8 @@ export function Occupancy() {
       setEditingTenant(tenant);
       setName(tenant.name);
       setPhone(tenant.phone);
+      setImageUrl(tenant.imageUrl || '');
+      setSelectedHouseId(tenant.houseId);
       setSelectedRooms(tenant.roomIds);
       setRentMode(tenant.rentMode);
       setCustomRent(tenant.customRentAmount?.toString() || '');
@@ -113,6 +118,8 @@ export function Occupancy() {
       setEditingTenant(null);
       setName('');
       setPhone('');
+      setImageUrl('');
+      setSelectedHouseId(activeHouseId);
       setSelectedRooms(preSelectRoomId ? [preSelectRoomId] : []);
       setRentMode('auto');
       setCustomRent('');
@@ -140,9 +147,10 @@ export function Occupancy() {
     const finalStartDate = dateOption === 'current' ? getTodayDateStr() : (startDate || getTodayDateStr());
 
     const payload = {
-      houseId: activeHouseId,
+      houseId: selectedHouseId,
       name,
       phone,
+      imageUrl,
       roomIds: selectedRooms,
       rentMode,
       customRentAmount: rentMode === 'manual' ? Number(customRent) : undefined,
@@ -344,9 +352,18 @@ export function Occupancy() {
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Current Occupant</p>
                         <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-bold text-slate-900 text-base">{tenant.name}</p>
-                            <p className="text-xs text-slate-500">{tenant.phone}</p>
+                          <div className="flex gap-3 items-center">
+                            {tenant.imageUrl ? (
+                              <img src={tenant.imageUrl} alt={tenant.name} className="w-10 h-10 rounded-full object-cover border border-slate-200" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
+                                {tenant.name.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                                <p className="font-bold text-slate-900 text-base">{tenant.name}</p>
+                                <p className="text-xs text-slate-500">{tenant.phone}</p>
+                            </div>
                           </div>
                           <div className="flex gap-2">
                             <button onClick={() => openTenantModal(tenant)} className="text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1 rounded transition-colors">Edit Tenant</button>
@@ -507,6 +524,45 @@ export function Occupancy() {
       {/* Modals placed at the end */}
       <Modal isOpen={isTenantModalOpen} onClose={() => setIsTenantModalOpen(false)} title={editingTenant ? "Edit Tenant Profile" : "Onboard New Tenant"}>
         <form onSubmit={handleTenantSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700">Tenant Picture</label>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors border-2 border-dashed border-slate-300"
+              >
+                <UserPlus className="w-6 h-6 text-slate-500" />
+              </button>
+              {imageUrl && (
+                <img src={imageUrl} alt="Tenant Preview" className="w-16 h-16 rounded-full object-cover border border-slate-200" />
+              )}
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => setImageUrl(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+              <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+              <input required type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+            </div>
+          </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Rent Collection Cycle Style</label>
             <div className="grid grid-cols-2 gap-3 p-1 bg-slate-100 rounded-xl border border-slate-200">
@@ -539,22 +595,24 @@ export function Occupancy() {
                 : 'Rent starts and is owed as due on the first day of joining.'}
             </p>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-              <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-              <input required type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Select Property</label>
+            <select 
+              value={selectedHouseId} 
+              onChange={(e) => { 
+                setSelectedHouseId(e.target.value); 
+                setSelectedRooms([]); 
+              }} 
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+            >
+              {houses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Assign Rooms</label>
             <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1 bg-slate-50">
-              {houseRooms.map(room => {
+              {rooms.filter(r => r.houseId === selectedHouseId).map(room => {
                 const isOccupiedByOther = occupiedRoomsForModal.has(room.id);
                 return (
                   <label key={room.id} className={`flex items-center p-2 rounded-md transition-colors ${isOccupiedByOther ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-50 cursor-pointer'} ${selectedRooms.includes(room.id) ? 'bg-indigo-50 border border-indigo-200 shadow-sm' : 'border border-transparent'}`}>
@@ -574,7 +632,7 @@ export function Occupancy() {
                   </label>
                 )
               })}
-              {houseRooms.length === 0 && <p className="text-sm text-slate-500 p-2 text-center">No rooms available in this property to assign.</p>}
+              {rooms.filter(r => r.houseId === selectedHouseId).length === 0 && <p className="text-sm text-slate-500 p-2 text-center">No rooms available in this property to assign.</p>}
             </div>
           </div>
 

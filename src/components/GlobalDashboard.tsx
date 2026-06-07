@@ -8,9 +8,13 @@ import { Tenant } from '../types';
 export function GlobalDashboard() {
   const { houses, rooms, tenants, payments, getTenantTotalRent } = useAppContext();
   const [globalSearch, setGlobalSearch] = useState('');
+  const [modalSearch, setModalSearch] = useState('');
   
   const [selectedTenantUser, setSelectedTenantUser] = useState<Tenant | null>(null);
   const [viewList, setViewList] = useState<'properties' | 'rooms' | 'tenants' | null>(null);
+
+  // Reset modal search when viewList changes
+  React.useEffect(() => { setModalSearch(''); }, [viewList]);
 
   // Stats
   const activeHouses = houses.filter(h => !h.isDeleted);
@@ -24,6 +28,7 @@ export function GlobalDashboard() {
 
   // Global Search logic
   const normalizedSearch = globalSearch.toLowerCase();
+  const normalizedModalSearch = modalSearch.toLowerCase();
   
   const searchResults = tenants.filter(tenant => {
     if (!normalizedSearch) return false;
@@ -35,6 +40,21 @@ export function GlobalDashboard() {
     
     return matchesTenantName || matchesRoom;
   });
+
+  const filteredProperties = activeHouses.filter(house => 
+    house.name.toLowerCase().includes(normalizedModalSearch) || 
+    (house.address && house.address.toLowerCase().includes(normalizedModalSearch))
+  );
+
+  const filteredRooms = rooms.filter(room => 
+    room.roomNumber.toLowerCase().includes(normalizedModalSearch) ||
+    (houses.find(h => h.id === room.houseId)?.name.toLowerCase().includes(normalizedModalSearch) ?? false)
+  );
+
+  const filteredTenants = tenants.filter(tenant => 
+    tenant.name.toLowerCase().includes(normalizedModalSearch) || 
+    tenant.phone.includes(normalizedModalSearch)
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 lg:space-y-8 animate-in fade-in duration-300 max-w-7xl mx-auto">
@@ -296,8 +316,18 @@ export function GlobalDashboard() {
         })()}
       </Modal>
       <Modal isOpen={viewList !== null} onClose={() => setViewList(null)} title={viewList === 'properties' ? 'All Properties' : viewList === 'rooms' ? 'All Rooms' : 'All Tenants'}>
+        <div className="relative mb-4">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={modalSearch}
+            onChange={e => setModalSearch(e.target.value)}
+            placeholder={`Search ${viewList}...`}
+            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 w-full"
+          />
+        </div>
         <div className="max-h-[60vh] overflow-y-auto space-y-3 -mx-2 px-2 pb-2">
-          {viewList === 'properties' && activeHouses.map(house => (
+          {viewList === 'properties' && filteredProperties.map(house => (
             <div key={house.id} className="p-4 border border-slate-200 rounded-lg bg-slate-50">
               <h4 className="font-bold text-slate-800">{house.name}</h4>
               <p className="text-xs text-slate-500">{house.address}</p>
@@ -308,7 +338,7 @@ export function GlobalDashboard() {
             </div>
           ))}
           
-          {viewList === 'rooms' && rooms.map(room => {
+          {viewList === 'rooms' && filteredRooms.map(room => {
             const house = houses.find(h => h.id === room.houseId);
             const tenant = tenants.find(t => t.roomIds.includes(room.id));
             return (
@@ -328,7 +358,7 @@ export function GlobalDashboard() {
             );
           })}
           
-          {viewList === 'tenants' && tenants.map(tenant => (
+          {viewList === 'tenants' && filteredTenants.map(tenant => (
             <div key={tenant.id} className="p-4 border border-slate-200 rounded-lg bg-slate-50 cursor-pointer hover:border-indigo-300 hover:shadow-sm transition-all" onClick={() => { setViewList(null); setSelectedTenantUser(tenant); }}>
               <div className="flex justify-between items-center">
                 <div>
@@ -339,6 +369,10 @@ export function GlobalDashboard() {
               </div>
             </div>
           ))}
+
+          {(viewList === 'properties' ? filteredProperties : viewList === 'rooms' ? filteredRooms : filteredTenants).length === 0 && (
+            <div className="p-8 text-center text-slate-400 font-medium">No results found for "{modalSearch}"</div>
+          )}
         </div>
       </Modal>
     </div>

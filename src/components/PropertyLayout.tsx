@@ -354,9 +354,9 @@ export function PropertyLayout() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 animate-in fade-in duration-300">
       
-      {/* Property Cover Header */}
-      <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-        <div className="h-48 sm:h-64 bg-slate-100 relative group overflow-hidden">
+      {/* Property Details Section */}
+      <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+        <div className="h-40 sm:h-56 bg-slate-100 relative group overflow-hidden">
           {currentHouse.imageUrl ? (
             <img 
               src={currentHouse.imageUrl} 
@@ -369,8 +369,8 @@ export function PropertyLayout() {
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-              <Building className="w-16 h-16 mb-4 opacity-50" />
-              <p className="font-medium">No Property Preview</p>
+              <Building className="w-12 h-12 mb-3 opacity-50" />
+              <p className="text-sm font-medium">No Property Preview</p>
             </div>
           )}
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -379,16 +379,16 @@ export function PropertyLayout() {
                 setImageUrlInput(currentHouse.imageUrl || '');
                 setIsImageUrlModalOpen(true);
               }}
-              className="bg-white text-slate-800 px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-slate-50 transition-colors shadow-sm"
+              className="bg-white text-slate-800 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-slate-50 transition-colors shadow-sm"
             >
-              <ImageIcon className="w-4 h-4" /> Edit Preview Image
+              <ImageIcon className="w-4 h-4" /> Edit Image
             </button>
           </div>
         </div>
-        <div className="p-6 md:p-8 flex justify-between items-end">
+        <div className="p-5 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-900">{currentHouse.name}</h1>
+              <h1 className="text-xl font-bold text-slate-900">{currentHouse.name}</h1>
               {isOwner && (
                 <button 
                   onClick={() => {
@@ -399,313 +399,182 @@ export function PropertyLayout() {
                   className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
                   title="Edit Property Info"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <p className="text-slate-500 mt-1">{currentHouse.address}</p>
+            <p className="text-sm text-slate-500 mt-0.5">{currentHouse.address}</p>
           </div>
-          <div className="text-right">
-            <div className="flex gap-2 justify-end mb-2">
-              {isOwner && (
-                <>
-                  <button 
-                    onClick={() => setIsShareModalOpen(true)}
-                    className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
-                  >
-                    Share Property
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (window.confirm("Are you sure you want to delete this entire property? This will also remove all rooms and tenants associated with it. This action cannot be undone.")) {
-                        deleteHouse(currentHouse.id);
-                      }
-                    }}
-                    className="text-xs font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200"
-                  >
-                    Delete Property
-                  </button>
-                </>
-              )}
-              <button 
-                onClick={openUtilityModal}
-                className="text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
-              >
-                Setup Utility Rates
-              </button>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-2xl font-bold text-slate-900">{houseRooms.length}</p>
+              <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Rooms</p>
             </div>
-            <p className="text-3xl font-bold text-slate-900">{houseRooms.length}</p>
-            <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Total Rooms</p>
+            {isOwner && (
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="text-xs font-bold text-slate-700 hover:text-indigo-600 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                >
+                  Share
+                </button>
+                <button 
+                  onClick={openUtilityModal}
+                  className="text-xs font-bold text-slate-700 hover:text-indigo-600 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                >
+                  Utilities
+                </button>
+                <button 
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this property?")) {
+                      deleteHouse(currentHouse.id);
+                    }
+                  }}
+                  className="text-xs font-bold text-rose-600 hover:text-white hover:bg-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Floors Layout */}
-      <div>
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold text-slate-800">Property Layout</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsFloorModalOpen(true)}
-              className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-semibold cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Add Floor
-            </button>
-            <button 
-              onClick={() => openRoomModal()}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold cursor-pointer"
-            >
-              <DoorOpen className="w-4 h-4" /> Add New Room
-            </button>
+      {/* Layout Management Section */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+        <div className="flex flex-col gap-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4">
+            <h2 className="text-2xl font-bold text-slate-900">Property Layout</h2>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button 
+                onClick={() => setIsFloorModalOpen(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-5 py-3 rounded-xl hover:bg-slate-200 transition-colors shadow-sm text-sm font-semibold cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Floor
+              </button>
+              <button 
+                onClick={() => openRoomModal()}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[var(--color-brand-primary)] text-white px-5 py-3 rounded-xl hover:bg-[var(--color-brand-primary-hover)] transition-colors shadow-sm text-sm font-semibold cursor-pointer"
+              >
+                <DoorOpen className="w-4 h-4" /> Add New Room
+              </button>
+            </div>
           </div>
         </div>
 
         {uniqueFloors.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-xl border border-slate-200 border-dashed animate-in fade-in duration-300">
-            <p className="text-slate-400 font-medium">No layout defined. Add rooms to build your property structure.</p>
+          <div className="p-16 text-center bg-slate-50 rounded-2xl border border-slate-200 border-dashed animate-in fade-in duration-300">
+            <p className="text-slate-500 font-medium">No rooms or floors defined. Start by adding a floor or room.</p>
           </div>
         ) : (
-          <div className="flex flex-col shadow-sm bg-white border border-slate-200 rounded-xl overflow-hidden animate-in fade-in duration-300">
-            {/* Top Collapsible Floor Selector Panel */}
-            <div className="bg-slate-50 border-b border-slate-200 p-4 transition-all duration-300 select-none">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                    <h3 className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Building Floors</h3>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const allSelected = activeFloors.length === uniqueFloors.length;
-                      if (allSelected) {
-                        setActiveFloors(uniqueFloors.slice(0, 5));
-                      } else {
-                        setActiveFloors(uniqueFloors);
-                      }
-                    }}
-                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer"
-                  >
-                    {activeFloors.length === uniqueFloors.length ? "Reset Selection" : "Show All"}
-                  </button>
-                </div>
+          <div className="flex flex-col border border-slate-200 rounded-2xl overflow-hidden">
+            {/* Floor Selection Panel */}
+            <div className="bg-slate-50 border-b border-slate-200 p-5">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xs uppercase font-bold tracking-widest text-slate-500">Select Floors to View</h3>
                 <button
                   onClick={() => setIsFloorsSidebarCollapsed(!isFloorsSidebarCollapsed)}
-                  className="px-2.5 py-1.5 hover:bg-slate-200/70 text-slate-500 hover:text-slate-800 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold border border-slate-200 bg-white shadow-sm"
-                  title={isFloorsSidebarCollapsed ? "Expand Floor List" : "Collapse Floor List"}
+                  className="px-3 py-1.5 hover:bg-slate-200/70 text-slate-500 hover:text-slate-800 rounded-lg transition-all cursor-pointer flex items-center gap-2 text-xs font-semibold border border-slate-200 bg-white shadow-sm"
                 >
-                  {isFloorsSidebarCollapsed ? (
-                    <>
-                      <span>Expand List</span>
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      <span>Collapse Upward</span>
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    </>
-                  )}
+                  {isFloorsSidebarCollapsed ? <><span className="hidden sm:inline">Show All</span><ChevronDown className="w-4 h-4" /></> : <><span className="hidden sm:inline">Hide List</span><ChevronUp className="w-4 h-4" /></>}
                 </button>
               </div>
 
-              {isFloorsSidebarCollapsed ? (
-                /* Collapsed: Only display active floors in expanding cards */
-                <div className="w-full flex items-center gap-2 animate-in slide-in-from-top-2 duration-200 overflow-x-auto py-1 scrollbar-none">
-                  {activeFloors.length === uniqueFloors.length && (
-                    <div 
-                      onClick={() => {
-                        setActiveFloors(uniqueFloors.slice(0, 5));
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold border border-indigo-600 shadow-sm cursor-pointer whitespace-nowrap active:scale-95 transition-all shrink-0"
-                    >
-                      <span className="w-1.5 h-5 rounded-full shrink-0 bg-white/40"></span>
-                      <span>All Floors ({uniqueFloors.length})</span>
-                    </div>
-                  )}
-                  {activeFloors.length !== uniqueFloors.length && uniqueFloors.filter(f => activeFloors.includes(f)).length > 0 ? (
-                    uniqueFloors.filter(f => activeFloors.includes(f)).map(f => (
-                      <div 
-                        key={f} 
+              {!isFloorsSidebarCollapsed && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                  <button
+                    onClick={() => {
+                      const allSelected = activeFloors.length === uniqueFloors.length;
+                      setActiveFloors(allSelected ? uniqueFloors.slice(0, 1) : uniqueFloors);
+                    }}
+                    className={`flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-xs transition-all border cursor-pointer min-h-[52px] ${
+                      activeFloors.length === uniqueFloors.length 
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    All Floors
+                  </button>
+                  {uniqueFloors.map(f => {
+                    const isSelected = activeFloors.includes(f);
+                    return (
+                      <button
+                        key={f}
                         onClick={() => {
-                          setActiveFloor(f);
+                          if (isSelected) {
+                            if (activeFloors.length > 1) setActiveFloors(activeFloors.filter(x => x !== f));
+                          } else {
+                            setActiveFloors([...activeFloors, f]);
+                          }
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold border border-indigo-600 shadow-sm cursor-pointer whitespace-nowrap active:scale-95 transition-all shrink-0"
+                        className={`flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-xs transition-all border cursor-pointer min-h-[52px] ${
+                          isSelected 
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                        }`}
                       >
-                        <span className="w-1.5 h-5 rounded-full shrink-0 bg-white/40"></span>
-                        <span>{f}</span>
-                      </div>
-                    ))
-                  ) : activeFloors.length !== uniqueFloors.length && (
-                    <span className="text-xs text-slate-400">No floors selected.</span>
-                  )}
-                </div>
-              ) : (
-                /* Expanded: List all floors in ascending order (sorted upward Floor 1, Floor 2...) */
-                <div className="overflow-y-auto max-h-[180px] p-1 pr-1.5 scrollbar-thin scrollbar-thumb-slate-200/80 scrollbar-track-transparent animate-in slide-in-from-bottom-2 duration-300">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-                    <button
-                      onClick={() => {
-                        const allSelected = activeFloors.length === uniqueFloors.length;
-                        if (allSelected) {
-                          setActiveFloors(uniqueFloors.slice(0, 1));
-                        } else {
-                          setActiveFloors(uniqueFloors);
-                        }
-                      }}
-                      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-with-scale border cursor-pointer ${
-                        activeFloors.length === uniqueFloors.length 
-                          ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-indigo-600 shadow-md shadow-indigo-600/15 scale-[1.02] z-10' 
-                          : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50/50'
-                      }`}
-                    >
-                      <span className={`w-1 h-3 rounded-full shrink-0 ${activeFloors.length === uniqueFloors.length ? 'bg-white/40' : 'bg-indigo-400'}`}></span>
-                      <span className="truncate">All Floors ({uniqueFloors.length})</span>
-                    </button>
-                    {uniqueFloors.map(f => {
-                      const isSelected = activeFloors.includes(f);
-                      return (
-                        <button
-                          key={f}
-                          onClick={() => {
-                            if (isSelected) {
-                              if (activeFloors.length > 1) {
-                                setActiveFloors(activeFloors.filter(x => x !== f));
-                              }
-                            } else {
-                              setActiveFloors([...activeFloors, f]);
-                            }
-                          }}
-                          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all border cursor-pointer ${
-                            isSelected 
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm scale-[1.02] z-10' 
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100/80 hover:border-slate-300'
-                          }`}
-                        >
-                          <span className={`w-1 h-3 rounded-full shrink-0 ${isSelected ? 'bg-white/40' : 'bg-slate-200'}`}></span>
-                          <span className="truncate">{f}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        {f}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
+            {/* Room List Section */}
             <div className="flex-1 bg-white min-h-[400px] flex flex-col">
-              {/* Filter panel inside Property Layout */}
-              <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
-                <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setRoomStatusFilter('all')}
-                    className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${roomStatusFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRoomStatusFilter('occupied')}
-                    className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${roomStatusFilter === 'occupied' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  >
-                    Occupied
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRoomStatusFilter('vacant')}
-                    className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${roomStatusFilter === 'vacant' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  >
-                    Vacant
-                  </button>
-                </div>
-
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <div className="px-6 py-5 border-b border-slate-100 bg-[var(--color-surface-bg)] flex flex-col gap-4">
+                <div className="relative w-full">
+                  <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
                   <input
                     type="text"
                     value={roomSearch}
                     onChange={e => setRoomSearch(e.target.value)}
-                    placeholder="Search by room or tenant..."
-                    className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                    placeholder="Search rooms or tenants..."
+                    className="pl-12 pr-6 py-4 bg-[var(--color-card-bg)] border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] w-full"
                   />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-1 bg-white p-1.5 rounded-xl border border-slate-300">
+                    {(['all', 'occupied', 'vacant'] as const).map(status => (
+                      <button
+                        key={status}
+                        onClick={() => setRoomStatusFilter(status)}
+                        className={`px-6 py-2.5 text-sm font-bold rounded-lg capitalize transition-colors cursor-pointer ${roomStatusFilter === status ? 'bg-[var(--color-text-main)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'}`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto max-h-[700px] divide-y divide-slate-100">
+              <div className="flex-1 overflow-y-auto max-h-[700px] p-4 sm:p-6 space-y-6 sm:space-y-8">
                 {uniqueFloors.filter(f => activeFloors.includes(f)).length === 0 ? (
-                  <div className="p-12 text-center text-slate-400 font-medium">
-                    Please select at least one floor above to view its layout.
-                  </div>
+                  <div className="text-center text-slate-400 font-medium">Please select a floor above.</div>
                 ) : (
                   uniqueFloors.filter(f => activeFloors.includes(f)).map(floor => {
                     const rawRooms = floorsMap.get(floor) || [];
                     const filteredRooms = rawRooms.filter(room => {
                       const tenant = tenants.find(t => t.roomIds.includes(room.id));
                       const isOccupied = !!tenant;
-
-                      const matchesSearch = room.roomNumber.toLowerCase().includes(roomSearch.toLowerCase()) || 
-                        (tenant && tenant.name.toLowerCase().includes(roomSearch.toLowerCase()));
-
-                      const matchesStatus = roomStatusFilter === 'all' || 
-                        (roomStatusFilter === 'occupied' && isOccupied) || 
-                        (roomStatusFilter === 'vacant' && !isOccupied);
-
+                      const matchesSearch = room.roomNumber.toLowerCase().includes(roomSearch.toLowerCase()) || (tenant && tenant.name.toLowerCase().includes(roomSearch.toLowerCase()));
+                      const matchesStatus = roomStatusFilter === 'all' || (roomStatusFilter === 'occupied' && isOccupied) || (roomStatusFilter === 'vacant' && !isOccupied);
                       return matchesSearch && matchesStatus;
                     });
 
                     return (
-                      <div key={floor} className="flex flex-col animate-in fade-in duration-300">
-                        <div className="bg-slate-50/50 border-b border-slate-100 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
-                          <div>
-                            <h3 className="font-bold text-lg text-slate-800">{floor}</h3>
-                            <p className="text-xs text-slate-400 font-medium">{filteredRooms.length} of {rawRooms.length} Rooms configured</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <button 
-                              onClick={() => {
-                                setActiveFloor(floor);
-                                setEditFloorName(floor);
-                                setIsEditFloorOpen(true);
-                              }}
-                              className="text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-                              title="Rename Floor"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" /> Rename
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setActiveFloor(floor);
-                                setIsBulkRentModalOpen(true);
-                              }}
-                              className="text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-                              title="Edit Base Rent for Floor"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" /> Bulk Rent
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteFloor(floor)}
-                              className="text-xs font-bold text-rose-500 bg-rose-50 hover:bg-rose-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-                              title="Delete Floor"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setActiveFloor(floor);
-                                openRoomModal(undefined, floor);
-                              }}
-                              className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Add Room
-                            </button>
+                      <div key={floor} className="space-y-4">
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                          <h3 className="font-bold text-base text-slate-900">{floor}</h3>
+                          <div className="flex gap-2 text-xs">
+                             <button onClick={() => { setActiveFloor(floor); setEditFloorName(floor); setIsEditFloorOpen(true); }} className="text-slate-500 font-bold hover:text-indigo-600">Rename</button>
+                             <button onClick={() => handleDeleteFloor(floor)} className="text-rose-600 font-bold hover:text-rose-700">Delete</button>
                           </div>
                         </div>
-
-                        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 content-start">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                           {filteredRooms.length === 0 ? (
-                            <div className="col-span-full py-8 text-center text-slate-400 text-xs font-medium">
-                              No rooms matching parameters on this floor.
-                            </div>
+                            <div className="col-span-full py-4 text-center text-slate-400 text-xs italic">No matching rooms.</div>
                           ) : (
                             filteredRooms.map(room => {
                               const tenant = tenants.find(t => t.roomIds.includes(room.id));
@@ -714,41 +583,15 @@ export function PropertyLayout() {
                                 <div 
                                   key={room.id} 
                                   onClick={() => openRoomInfo(room)}
-                                  className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 bg-white group flex flex-col justify-between cursor-pointer"
+                                  className={`border rounded-xl p-3 sm:p-4 cursor-pointer hover:border-slate-400 transition-all ${isOccupied ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200'}`}
                                 >
-                                  <div className="flex justify-between items-center mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-slate-800 text-sm">{room.roomNumber}</span>
-                                      {isOccupied ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-250/20">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                          Occupied
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-250/20">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                                          Vacant
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={(e) => { e.stopPropagation(); openRoomModal(room); }} className="p-1 text-slate-400 hover:text-indigo-600 rounded-full hover:bg-slate-50 transition-colors" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                                      <button onClick={(e) => { e.stopPropagation(); handleRoomDelete(room.id); }} className="p-1 text-slate-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
-                                    </div>
+                                  <div className="flex justify-between items-start mb-2 sm:mb-3">
+                                    <span className="font-bold text-slate-900 text-base">{room.roomNumber}</span>
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${isOccupied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                                      {isOccupied ? 'Occupied' : 'Vacant'}
+                                    </span>
                                   </div>
-                                  
-                                  <div className="flex justify-between items-end border-t border-slate-100 pt-2.5 mt-2">
-                                    <div>
-                                      <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Base Rent</div>
-                                      <div className="font-mono font-extrabold text-slate-800 text-sm">NPR {room.rentAmount}</div>
-                                    </div>
-                                    {isOccupied && tenant && (
-                                      <div className="text-right">
-                                        <span className="text-[10px] text-indigo-600 font-bold block truncate max-w-[130px]" title={tenant.name}>{tenant.name}</span>
-                                        <span className="text-[9px] text-slate-400 font-semibold block">Joined: {tenant.startDate ? formatWithNepaliDate(tenant.startDate) : 'N/A'}</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                  <div className="text-sm font-mono text-slate-700">NPR {room.rentAmount} / mo</div>
                                 </div>
                               );
                             })

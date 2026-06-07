@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { House, Room, Tenant, Payment, ViewState, ArchivedItem } from '../types';
 import { mockHouses, mockRooms, mockTenants, mockPayments } from '../lib/mockData';
 import { supabase, credentials } from '../lib/supabase';
+import { sanitizeObject, countAndValidateRateLimit } from '../lib/security';
 
 export interface AuthUser {
   id: string;
@@ -133,6 +134,7 @@ const mapTenantFromDb = (dbTenant: any): Tenant => ({
   houseId: dbTenant.house_id,
   name: dbTenant.name,
   phone: dbTenant.phone || '',
+  imageUrl: dbTenant.image_url,
   roomIds: Array.isArray(dbTenant.room_ids) ? dbTenant.room_ids : [],
   rentMode: dbTenant.rent_mode || 'auto',
   customRentAmount: dbTenant.custom_rent_amount ? Number(dbTenant.custom_rent_amount) : undefined,
@@ -145,6 +147,7 @@ const mapTenantToDb = (tenant: Partial<Tenant>, ownerId: string) => ({
   house_id: tenant.houseId,
   name: tenant.name,
   phone: tenant.phone,
+  image_url: tenant.imageUrl,
   room_ids: tenant.roomIds,
   rent_mode: tenant.rentMode,
   custom_rent_amount: tenant.customRentAmount,
@@ -501,6 +504,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addHouse = (house: Omit<House, 'id'>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:house');
+    if (!rateLimit.allowed) return '';
+
     const id = generateId();
     const newHouse = { ...house, id };
 
@@ -508,7 +514,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     recentlyCreatedHouseIds.current.add(id);
 
     if (user && !isSandboxMode) {
-      supabase.from('houses').insert(mapHouseToDb(newHouse, user.id, user.email)).then(({ error }) => {
+      const dbHouse = sanitizeObject(mapHouseToDb(newHouse, user.id, user.email));
+      supabase.from('houses').insert(dbHouse).then(({ error }) => {
         if (error) console.error('insert house error:', error);
       });
     }
@@ -522,12 +529,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   
   const updateHouse = (id: string, data: Partial<House>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:house');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow operations on houses owned by this user
     const houseToUpdate = houses.find(h => h.id === id);
     if (!houseToUpdate) return;
 
     if (user && !isSandboxMode) {
-      const dbData = mapHouseToDb({ ...houseToUpdate, ...data, id }, user.id, user.email || houseToUpdate.ownerEmail);
+      const dbData = sanitizeObject(mapHouseToDb({ ...houseToUpdate, ...data, id }, user.id, user.email || houseToUpdate.ownerEmail));
       supabase.from('houses').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update house error:', error);
       });
@@ -570,6 +580,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addRoom = (room: Omit<Room, 'id'>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:room');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow adding a room to a user's own property or a newly created one in this click event
     const ownsHouse = houses.some(h => h.id === room.houseId) || recentlyCreatedHouseIds.current.has(room.houseId);
     if (!ownsHouse) return;
@@ -578,7 +591,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newRoom = { ...room, id };
 
     if (user && !isSandboxMode) {
-      supabase.from('rooms').insert(mapRoomToDb(newRoom, user.id)).then(({ error }) => {
+      const dbRoom = sanitizeObject(mapRoomToDb(newRoom, user.id));
+      supabase.from('rooms').insert(dbRoom).then(({ error }) => {
         if (error) console.error('insert room error:', error);
       });
     }
@@ -587,12 +601,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateRoom = (id: string, data: Partial<Room>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:room');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow operations on rooms owned by this user
     const targetRoom = rooms.find(r => r.id === id);
     if (!targetRoom || !houses.some(h => h.id === targetRoom.houseId)) return;
 
     if (user && !isSandboxMode) {
-      const dbData = mapRoomToDb({ ...rooms.find(r => r.id === id), ...data, id }, user.id);
+      const dbData = sanitizeObject(mapRoomToDb({ ...rooms.find(r => r.id === id), ...data, id }, user.id));
       supabase.from('rooms').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update room error:', error);
       });
@@ -722,6 +739,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addTenant = (tenant: Omit<Tenant, 'id'>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:tenant');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow adding a tenant to a user's own property
     const ownsHouse = houses.some(h => h.id === tenant.houseId);
     if (!ownsHouse) return;
@@ -730,7 +750,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newTenant = { ...tenant, id };
 
     if (user && !isSandboxMode) {
-      supabase.from('tenants').insert(mapTenantToDb(newTenant, user.id)).then(({ error }) => {
+      const dbTenant = sanitizeObject(mapTenantToDb(newTenant, user.id));
+      supabase.from('tenants').insert(dbTenant).then(({ error }) => {
         if (error) console.error('insert tenant error:', error);
       });
     }
@@ -739,12 +760,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateTenant = (id: string, data: Partial<Tenant>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:tenant');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow operations on tenants owned by this user
     const targetTenant = tenants.find(t => t.id === id);
     if (!targetTenant || !houses.some(h => h.id === targetTenant.houseId)) return;
 
     if (user && !isSandboxMode) {
-      const dbData = mapTenantToDb({ ...tenants.find(t => t.id === id), ...data, id }, user.id);
+      const dbData = sanitizeObject(mapTenantToDb({ ...tenants.find(t => t.id === id), ...data, id }, user.id));
       supabase.from('tenants').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update tenant error:', error);
       });
@@ -768,6 +792,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addPayment = (payment: Omit<Payment, 'id'>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:payment');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow adding payments to a user's own property
     const ownsHouse = houses.some(h => h.id === payment.houseId);
     if (!ownsHouse) return;
@@ -776,7 +803,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newPayment = { ...payment, id };
 
     if (user && !isSandboxMode) {
-      supabase.from('payments').insert(mapPaymentToDb(newPayment, user.id)).then(({ error }) => {
+      const dbPayment = sanitizeObject(mapPaymentToDb(newPayment, user.id));
+      supabase.from('payments').insert(dbPayment).then(({ error }) => {
         if (error) console.error('insert payment error:', error);
       });
     }
@@ -785,12 +813,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updatePayment = (id: string, data: Partial<Payment>) => {
+    const rateLimit = countAndValidateRateLimit('db:write:payment');
+    if (!rateLimit.allowed) return;
+
     // Strict ownership validation check: only allow operations on payments owned by this user
     const targetPayment = payments.find(p => p.id === id);
     if (!targetPayment || !houses.some(h => h.id === targetPayment.houseId)) return;
 
     if (user && !isSandboxMode) {
-      const dbData = mapPaymentToDb({ ...payments.find(p => p.id === id), ...data, id }, user.id);
+      const dbData = sanitizeObject(mapPaymentToDb({ ...payments.find(p => p.id === id), ...data, id }, user.id));
       supabase.from('payments').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update payment error:', error);
       });

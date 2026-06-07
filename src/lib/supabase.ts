@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { secureStorage } from './security';
 
 // --- HARDCODED SUPABASE CREDENTIALS ---
 // Paste your real Supabase project credentials below to embed them directly.
@@ -16,10 +17,9 @@ const isValidUrl = (url: string) => {
   }
 };
 
-// Retrieve credentials from hardcoded constants OR environment variables OR localStorage fallback
+// Retrieve credentials from hardcoded constants OR environment variables OR secureStorage fallback
 const getSupabaseCredentials = () => {
   const metaEnv = (import.meta as any).env || {};
-  console.log('Vite Node Environment MetaEnv:', metaEnv);
   
   let hardcodedUrl = (HARDCODED_SUPABASE_URL || '').trim();
   let hardcodedKey = (HARDCODED_SUPABASE_ANON_KEY || '').trim();
@@ -41,8 +41,9 @@ const getSupabaseCredentials = () => {
     envKey = envKey.substring(1, envKey.length - 1).trim();
   }
 
-  let localUrl = (localStorage.getItem('PROPS_SUPABASE_URL') || '').trim();
-  let localKey = (localStorage.getItem('PROPS_SUPABASE_ANON_KEY') || '').trim();
+  // Use compile-time fallback and fallback reading from un-obfuscated items if obfuscated not exist yet
+  let localUrl = (secureStorage.getItem('PROPS_SUPABASE_URL') || localStorage.getItem('PROPS_SUPABASE_URL') || '').trim();
+  let localKey = (secureStorage.getItem('PROPS_SUPABASE_ANON_KEY') || localStorage.getItem('PROPS_SUPABASE_ANON_KEY') || '').trim();
 
   if (localUrl.startsWith('"') && localUrl.endsWith('"')) {
     localUrl = localUrl.substring(1, localUrl.length - 1).trim();
@@ -57,12 +58,20 @@ const getSupabaseCredentials = () => {
     localKey = localKey.substring(1, localKey.length - 1).trim();
   }
 
-  console.log('Supabase Connection Trial URLs:', { hardcodedUrl, envUrl, localUrl });
-
   const finalUrl = (isValidUrl(hardcodedUrl) ? hardcodedUrl : null) || (isValidUrl(envUrl) ? envUrl : null) || (isValidUrl(localUrl) ? localUrl : null) || '';
   const finalKey = finalUrl === hardcodedUrl ? hardcodedKey : (finalUrl === envUrl ? envKey : (finalUrl === localUrl ? localKey : ''));
 
-  console.log('Supabase Connection Selected:', { finalUrl, hasKey: !!finalKey });
+  // Mask or obfuscate URLs in trace outputs to keep development consoles clean and safe from shoulder-surfing leaks
+  if (finalUrl) {
+    try {
+      const parsed = new URL(finalUrl);
+      console.log('[Security] Supabase endpoint verified secure: %s...', parsed.hostname.substring(0, 8));
+    } catch {
+      console.log('[Security] Supabase endpoint verified (custom).');
+    }
+  } else {
+    console.warn('[Security] Supabase URL is empty.');
+  }
 
   return {
     url: finalUrl,

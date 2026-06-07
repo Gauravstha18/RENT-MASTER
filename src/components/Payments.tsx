@@ -45,23 +45,9 @@ export function Payments() {
 
   useEffect(() => {
     if (globalAction === 'payment') {
-      const unpaidTenant = houseTenants.find(t => {
-        const payment = getPaymentForTenant(t.id);
-        return !payment || payment.status !== 'paid';
-      }) || houseTenants[0];
-      
-      if (unpaidTenant) {
-        const expectedRent = getTenantTotalRent(unpaidTenant);
-        let calculatedDue = expectedRent;
-        if (unpaidTenant.startDate) {
-          const calc = calculateProRatedAmount(unpaidTenant.startDate, selectedDate, expectedRent, unpaidTenant.rentCycle);
-          calculatedDue = calc.due;
-        }
-        openPaymentModal(unpaidTenant.id, calculatedDue);
-      }
       setGlobalAction(null);
     }
-  }, [globalAction, houseTenants, getTenantTotalRent, selectedDate, setGlobalAction]);
+  }, [globalAction, setGlobalAction]);
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();

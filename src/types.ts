@@ -41,6 +41,7 @@ export interface Tenant {
   houseId: string;
   name: string;
   phone: string;
+  imageUrl?: string;
   roomIds: string[];
   rentMode: 'auto' | 'manual';
   customRentAmount?: number;
