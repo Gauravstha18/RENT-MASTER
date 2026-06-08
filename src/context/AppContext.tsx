@@ -82,7 +82,7 @@ const partialDbMapper = (data: any, keyMap: Record<string, string>) => {
   const result: any = {};
   for (const [appKey, dbKey] of Object.entries(keyMap)) {
     if (appKey in data) {
-      result[dbKey] = data[appKey];
+      result[dbKey] = data[appKey] === undefined ? null : data[appKey];
     }
   }
   return result;
@@ -111,15 +111,15 @@ const mapHouseToDb = (house: Partial<House>, ownerId: string, ownerEmail?: strin
   id: house.id,
   name: house.name,
   address: house.address,
-  image_url: house.imageUrl,
+  image_url: house.imageUrl === undefined ? null : house.imageUrl,
   floors: house.floors,
-  electricity_rate: house.electricityRate,
-  water_rate: house.waterRate,
-  trash_collection_rate: house.trashCollectionRate,
+  electricity_rate: house.electricityRate === undefined ? null : house.electricityRate,
+  water_rate: house.waterRate === undefined ? null : house.waterRate,
+  trash_collection_rate: house.trashCollectionRate === undefined ? null : house.trashCollectionRate,
   electricity_billing_type: house.electricityBillingType,
   water_billing_type: house.waterBillingType,
   trash_billing_type: house.trashBillingType,
-  is_deleted: house.isDeleted,
+  is_deleted: house.isDeleted === undefined ? null : house.isDeleted,
   shared_with_emails: house.sharedWithEmails,
   collaborators: house.collaborators,
   owner_email: house.ownerEmail || ownerEmail,
@@ -151,12 +151,12 @@ const mapRoomToDb = (room: Partial<Room>, ownerId?: string) => {
     id: room.id,
     house_id: room.houseId,
     room_number: room.roomNumber,
-    rent_amount: room.rentAmount,
-    floor: room.floor,
-    previous_electricity_reading: room.previousElectricityReading,
-    current_electricity_reading: room.currentElectricityReading,
-    previous_water_reading: room.previousWaterReading,
-    current_water_reading: room.currentWaterReading,
+    rent_amount: room.rentAmount === undefined ? null : room.rentAmount,
+    floor: room.floor === undefined ? null : room.floor,
+    previous_electricity_reading: room.previousElectricityReading === undefined ? null : room.previousElectricityReading,
+    current_electricity_reading: room.currentElectricityReading === undefined ? null : room.currentElectricityReading,
+    previous_water_reading: room.previousWaterReading === undefined ? null : room.previousWaterReading,
+    current_water_reading: room.currentWaterReading === undefined ? null : room.currentWaterReading
   };
   if (ownerId) rs.owner_id = ownerId;
   return rs;
@@ -189,15 +189,15 @@ const mapTenantToDb = (tenant: Partial<Tenant>, ownerId?: string) => {
     id: tenant.id,
     house_id: tenant.houseId,
     name: tenant.name,
-    phone: tenant.phone,
-    image_url: tenant.imageUrl,
+    phone: tenant.phone === undefined ? null : tenant.phone,
+    image_url: tenant.imageUrl === undefined ? null : tenant.imageUrl,
     documents: tenant.documents || [],
     room_ids: tenant.roomIds,
     rent_mode: tenant.rentMode,
-    custom_rent_amount: tenant.customRentAmount,
-    start_date: tenant.startDate,
+    custom_rent_amount: tenant.customRentAmount === undefined ? null : tenant.customRentAmount,
+    start_date: tenant.startDate === undefined ? null : tenant.startDate,
     rent_cycle: tenant.rentCycle,
-    rent_collection_type: tenant.rentCollectionType
+    rent_collection_type: tenant.rentCollectionType === undefined ? null : tenant.rentCollectionType
   };
   if (ownerId) rs.owner_id = ownerId;
   return rs;
@@ -231,15 +231,15 @@ const mapPaymentToDb = (p: Partial<Payment>, ownerId?: string) => {
     house_id: p.houseId,
     tenant_id: p.tenantId,
     month: p.month,
-    amount_due: p.amountDue,
-    amount_paid: p.amountPaid,
+    amount_due: p.amountDue === undefined ? null : p.amountDue,
+    amount_paid: p.amountPaid === undefined ? null : p.amountPaid,
     payment_date: p.paymentDate,
     status: p.status,
-    base_rent: p.baseRent,
-    electricity_charge: p.electricityCharge,
-    water_charge: p.waterCharge,
-    trash_charge: p.trashCharge,
-    other_charges: p.otherCharges,
+    base_rent: p.baseRent === undefined ? null : p.baseRent,
+    electricity_charge: p.electricityCharge === undefined ? null : p.electricityCharge,
+    water_charge: p.waterCharge === undefined ? null : p.waterCharge,
+    trash_charge: p.trashCharge === undefined ? null : p.trashCharge,
+    other_charges: p.otherCharges === undefined ? null : p.otherCharges,
   };
   if (ownerId) rs.owner_id = ownerId;
   return rs;
