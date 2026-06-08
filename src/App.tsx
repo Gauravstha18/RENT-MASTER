@@ -225,39 +225,42 @@ function AppContent() {
     return <Login onAuthSuccess={() => {}} />;
   }
 
-  return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative flex-col">
-      {requiresDbMigration && !isSandboxMode && (
-        <div className="bg-rose-50 border-b border-rose-200 px-4 py-3 flex items-start gap-3 flex-shrink-0 z-50 shadow-sm relative">
-          <div className="bg-rose-100 p-1.5 rounded-full mt-0.5 shrink-0">
-            <ShieldAlert className="w-4 h-4 text-rose-600" />
+  if (requiresDbMigration && !isSandboxMode) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50 font-sans text-slate-800 p-6">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg border border-rose-200 p-8 flex flex-col items-center text-center">
+          <div className="bg-rose-100 p-3 rounded-full mb-4">
+            <ShieldAlert className="w-8 h-8 text-rose-600" />
           </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-bold text-rose-900">Database Schema Update Required</h3>
-            <p className="text-xs text-rose-700 mt-1 leading-relaxed">
-              New features depend on updated database columns. Please copy and run the provided SQL setup script in your Supabase SQL Editor. 
-              <br/><span className="font-semibold">Certain data writes or reads will fail or disappear until this is completed.</span>
-            </p>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(SUPABASE_SQL_SETUP);
-                setCopiedSql(true);
-                setTimeout(() => setCopiedSql(false), 2000);
-              }}
-              className="mt-2 bg-white border border-rose-200 text-rose-700 px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 hover:bg-rose-50 transition-colors shadow-sm"
-            >
-              {copiedSql ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-              {copiedSql ? 'SQL Snippet Copied!' : 'Copy SQL Script'}
-            </button>
-          </div>
-          <button 
-            onClick={() => setRequiresDbMigration(false)}
-            className="p-1 hover:bg-rose-100 rounded-md text-rose-500 transition-colors"
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Database Update Required</h2>
+          <p className="text-sm text-slate-600 leading-relaxed mb-6">
+            We've released new features that require your database schema to be updated. You must run the latest SQL setup script before you can continue using the dashboard. Data entered without this update will not be saved correctly.
+          </p>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(SUPABASE_SQL_SETUP);
+              setCopiedSql(true);
+              setTimeout(() => setCopiedSql(false), 2000);
+            }}
+            className="w-full bg-slate-900 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-sm"
           >
-            <X className="w-4 h-4" />
+            {copiedSql ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+            {copiedSql ? 'SQL Script Copied!' : 'Copy SQL Script'}
+          </button>
+          
+          <button
+             onClick={() => window.location.reload()}
+             className="w-full mt-3 bg-white border border-slate-200 text-slate-700 font-medium py-2.5 rounded-lg flex items-center justify-center hover:bg-slate-50 transition-colors"
+          >
+             I have updated the database
           </button>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative flex-col">
       <div className="flex flex-1 overflow-hidden relative">
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (

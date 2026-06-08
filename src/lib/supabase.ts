@@ -170,6 +170,7 @@ create policy "Allow select own rooms" on public.rooms for select using (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators))
     )
@@ -181,6 +182,7 @@ create policy "Allow insert own rooms" on public.rooms for insert with check (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators) where value->>'role' = 'write')
     )
@@ -192,13 +194,14 @@ create policy "Allow update own rooms" on public.rooms for update using (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators) where value->>'role' = 'write')
     )
   )
 );
 drop policy if exists "Allow delete own rooms" on public.rooms;
-create policy "Allow delete own rooms" on public.rooms for delete using (auth.uid() = owner_id);
+create policy "Allow delete own rooms" on public.rooms for delete using (auth.uid() = owner_id or exists (select 1 from public.houses where public.houses.id = house_id and public.houses.owner_id = auth.uid()));
 
 
 -- 3. Create Tenants Table
@@ -229,6 +232,7 @@ create policy "Allow select own tenants" on public.tenants for select using (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators))
     )
@@ -240,6 +244,7 @@ create policy "Allow insert own tenants" on public.tenants for insert with check
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators) where value->>'role' = 'write')
     )
@@ -251,13 +256,14 @@ create policy "Allow update own tenants" on public.tenants for update using (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators) where value->>'role' = 'write')
     )
   )
 );
 drop policy if exists "Allow delete own tenants" on public.tenants;
-create policy "Allow delete own tenants" on public.tenants for delete using (auth.uid() = owner_id);
+create policy "Allow delete own tenants" on public.tenants for delete using (auth.uid() = owner_id or exists (select 1 from public.houses where public.houses.id = house_id and public.houses.owner_id = auth.uid()));
 
 
 -- 4. Create Payments Table
@@ -286,6 +292,7 @@ create policy "Allow select own payments" on public.payments for select using (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators))
     )
@@ -297,6 +304,7 @@ create policy "Allow insert own payments" on public.payments for insert with che
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators) where value->>'role' = 'write')
     )
@@ -308,11 +316,12 @@ create policy "Allow update own payments" on public.payments for update using (
     select 1 from public.houses 
     where public.houses.id = house_id 
     and (
+      public.houses.owner_id = auth.uid() or
       auth.jwt() ->> 'email' in (select jsonb_array_elements_text(shared_with_emails)) or
       auth.jwt() ->> 'email' in (select value->>'email' from jsonb_array_elements(collaborators) where value->>'role' = 'write')
     )
   )
 );
 drop policy if exists "Allow delete own payments" on public.payments;
-create policy "Allow delete own payments" on public.payments for delete using (auth.uid() = owner_id);
+create policy "Allow delete own payments" on public.payments for delete using (auth.uid() = owner_id or exists (select 1 from public.houses where public.houses.id = house_id and public.houses.owner_id = auth.uid()));
 `;
