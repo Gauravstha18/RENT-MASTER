@@ -50,6 +50,12 @@ export function calculateProRatedAmount(
     return { due: 0, daysActive: 0, nextDueDate: startDate };
   }
 
+  const daysBetween = (d1: Date, d2: Date) => {
+    const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+    const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+    return Math.round((utc2 - utc1) / (1000 * 60 * 60 * 24));
+  };
+
   // Find the most recent cycle start date before or on 'end'
   let currentCycleStart = new Date(start);
   let nextCycleStart = new Date(getNextCycleDate(currentCycleStart.toISOString().slice(0, 10), cycle));
@@ -64,11 +70,8 @@ export function calculateProRatedAmount(
   }
 
   // Calculate days passed in the *current* incomplete cycle
-  const diffTime = end.getTime() - currentCycleStart.getTime();
-  const daysActiveInCurrentCycle = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
-  const cycleTime = nextCycleStart.getTime() - currentCycleStart.getTime();
-  const daysInCurrentCycle = Math.floor(cycleTime / (1000 * 60 * 60 * 24));
+  const daysActiveInCurrentCycle = daysBetween(currentCycleStart, end);
+  const daysInCurrentCycle = daysBetween(currentCycleStart, nextCycleStart);
   
   // Base due from completed cycles
   const completedCycleDue = fullyCompletedCycles * cycleAmount;
@@ -78,7 +81,7 @@ export function calculateProRatedAmount(
     ? (daysActiveInCurrentCycle / daysInCurrentCycle) * cycleAmount 
     : 0;
 
-  const totalActiveDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  const totalActiveDays = daysBetween(start, end);
 
   return {
     due: Math.round(completedCycleDue + proratedDue),
@@ -136,6 +139,12 @@ export function getRentDueInfo(
   const ref = new Date(referenceDateStr);
   if (isNaN(start.getTime()) || isNaN(ref.getTime())) return null;
 
+  const daysBetweenDates = (d1: Date, d2: Date) => {
+    const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+    const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+    return Math.round((utc2 - utc1) / (1000 * 60 * 60 * 24));
+  };
+
   const cycle = tenant.rentCycle || 'monthly';
   const type = tenant.rentCollectionType || 'arrears';
 
@@ -149,8 +158,7 @@ export function getRentDueInfo(
   let due = new Date(initialDueStr);
 
   if (due > ref) {
-    const diffTime = due.getTime() - ref.getTime();
-    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const days = daysBetweenDates(ref, due);
     return {
       dueDate: initialDueStr,
       isOverdue: false,
@@ -175,8 +183,7 @@ export function getRentDueInfo(
   }
 
   const activeDueDate = new Date(activeDueDateStr);
-  const diffTime = ref.getTime() - activeDueDate.getTime();
-  const daysDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const daysDiff = daysBetweenDates(activeDueDate, ref);
 
   if (daysDiff > 0) {
     const breakdownText = getOverdueBreakdown(activeDueDate, ref);
@@ -188,7 +195,7 @@ export function getRentDueInfo(
       displayText: `OVERDUE by ${breakdownText} (Due: ${activeDueDateStr})`
     };
   } else {
-    const upcomingDiff = Math.ceil((activeDueDate.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
+    const upcomingDiff = daysBetweenDates(ref, activeDueDate);
     return {
       dueDate: activeDueDateStr,
       isOverdue: false,

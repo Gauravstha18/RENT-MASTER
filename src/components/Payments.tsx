@@ -21,6 +21,15 @@ export function Payments() {
   const [tenantSearch, setTenantSearch] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tenantSearch, paymentStatusFilter, selectedDate]);
+
   const currentHouse = houses.find(h => h.id === activeHouseId);
   const houseTenants = tenants.filter(t => t.houseId === activeHouseId);
   const selectedMonthStr = selectedDate.slice(0, 7);
@@ -207,6 +216,13 @@ export function Payments() {
     });
   }, [processedLedgerItems, tenantSearch, paymentStatusFilter]);
 
+  const paginatedLedgerItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredLedgerItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredLedgerItems, currentPage]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLedgerItems.length / itemsPerPage));
+
   const activeTenantName = houseTenants.find(t => t.id === activeTenantId)?.name;
 
   if (!activeHouseId) return null;
@@ -291,12 +307,12 @@ export function Payments() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredLedgerItems.length === 0 ? (
+              {paginatedLedgerItems.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">No statements or ledger records match filters.</td>
                 </tr>
               ) : (
-                filteredLedgerItems.map(item => {
+                paginatedLedgerItems.map(item => {
                   const { tenant, calculatedDue, nextDueDate, daysActive, electricityTotal, waterTotal, trashTotal, totalDue, status, paidAmount } = item;
                   const dueInfo = getRentDueInfo(tenant, payments, selectedDate);
                   
@@ -360,10 +376,10 @@ export function Payments() {
 
         {/* Mobile Card List View */}
         <div className="md:hidden divide-y divide-slate-100">
-          {filteredLedgerItems.length === 0 ? (
+          {paginatedLedgerItems.length === 0 ? (
             <div className="px-6 py-12 text-center text-slate-400 font-medium">No statements or ledger records match filters.</div>
           ) : (
-            filteredLedgerItems.map(item => {
+            paginatedLedgerItems.map(item => {
               const { tenant, calculatedDue, nextDueDate, daysActive, electricityTotal, waterTotal, trashTotal, totalDue, status, paidAmount } = item;
               const dueInfo = getRentDueInfo(tenant, payments, selectedDate);
               
@@ -412,6 +428,31 @@ export function Payments() {
             })
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 flex items-center justify-between border-t border-slate-100 bg-slate-50">
+            <span className="text-xs font-medium text-slate-500">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Collect Rent - ${activeTenantName}`}>

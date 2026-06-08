@@ -36,12 +36,20 @@ export interface Room {
 
 export type RentCycle = 'weekly' | 'monthly' | 'yearly';
 
+export interface TenantDocument {
+  id: string;
+  name: string;
+  url: string;
+  addedAt: string;
+}
+
 export interface Tenant {
   id: string;
   houseId: string;
   name: string;
   phone: string;
   imageUrl?: string;
+  documents?: TenantDocument[];
   roomIds: string[];
   rentMode: 'auto' | 'manual';
   customRentAmount?: number;

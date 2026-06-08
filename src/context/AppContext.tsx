@@ -65,16 +65,38 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
+const safeNumber = (val: any): number | undefined => {
+  if (val === null || val === undefined || val === '') return undefined;
+  const num = Number(val);
+  return isNaN(num) ? undefined : num;
+};
+
+const safeNumberDefault = (val: any, defaultVal: number = 0): number => {
+  if (val === null || val === undefined || val === '') return defaultVal;
+  const num = Number(val);
+  return isNaN(num) ? defaultVal : num;
+};
+
 // Mapping utilities between standard app camelCase models & Database snake_case records
+const partialDbMapper = (data: any, keyMap: Record<string, string>) => {
+  const result: any = {};
+  for (const [appKey, dbKey] of Object.entries(keyMap)) {
+    if (appKey in data) {
+      result[dbKey] = data[appKey];
+    }
+  }
+  return result;
+};
+
 const mapHouseFromDb = (dbHouse: any): House => ({
   id: dbHouse.id,
   name: dbHouse.name,
   address: dbHouse.address,
   imageUrl: dbHouse.image_url,
   floors: Array.isArray(dbHouse.floors) ? dbHouse.floors : [],
-  electricityRate: dbHouse.electricity_rate ? Number(dbHouse.electricity_rate) : undefined,
-  waterRate: dbHouse.water_rate ? Number(dbHouse.water_rate) : undefined,
-  trashCollectionRate: dbHouse.trash_collection_rate ? Number(dbHouse.trash_collection_rate) : undefined,
+  electricityRate: safeNumber(dbHouse.electricity_rate),
+  waterRate: safeNumber(dbHouse.water_rate),
+  trashCollectionRate: safeNumber(dbHouse.trash_collection_rate),
   electricityBillingType: dbHouse.electricity_billing_type || 'fixed',
   waterBillingType: dbHouse.water_billing_type || 'fixed',
   trashBillingType: dbHouse.trash_billing_type || 'fixed',
@@ -101,33 +123,51 @@ const mapHouseToDb = (house: Partial<House>, ownerId: string, ownerEmail?: strin
   shared_with_emails: house.sharedWithEmails,
   collaborators: house.collaborators,
   owner_email: house.ownerEmail || ownerEmail,
-  owner_id: ownerId
+  owner_id: house.ownerId || ownerId
 });
+
+const houseKeyMap = {
+  id: 'id', name: 'name', address: 'address', imageUrl: 'image_url', floors: 'floors',
+  electricityRate: 'electricity_rate', waterRate: 'water_rate', trashCollectionRate: 'trash_collection_rate',
+  electricityBillingType: 'electricity_billing_type', waterBillingType: 'water_billing_type', trashBillingType: 'trash_billing_type',
+  isDeleted: 'is_deleted', sharedWithEmails: 'shared_with_emails', collaborators: 'collaborators', ownerEmail: 'owner_email', ownerId: 'owner_id'
+};
+const mapHousePartialToDb = (data: Partial<House>) => partialDbMapper(data, houseKeyMap);
 
 const mapRoomFromDb = (dbRoom: any): Room => ({
   id: dbRoom.id,
   houseId: dbRoom.house_id,
   roomNumber: dbRoom.room_number,
-  rentAmount: Number(dbRoom.rent_amount || 0),
+  rentAmount: safeNumberDefault(dbRoom.rent_amount, 0),
   floor: dbRoom.floor,
-  previousElectricityReading: dbRoom.previous_electricity_reading ? Number(dbRoom.previous_electricity_reading) : undefined,
-  currentElectricityReading: dbRoom.current_electricity_reading ? Number(dbRoom.current_electricity_reading) : undefined,
-  previousWaterReading: dbRoom.previous_water_reading ? Number(dbRoom.previous_water_reading) : undefined,
-  currentWaterReading: dbRoom.current_water_reading ? Number(dbRoom.current_water_reading) : undefined
+  previousElectricityReading: safeNumber(dbRoom.previous_electricity_reading),
+  currentElectricityReading: safeNumber(dbRoom.current_electricity_reading),
+  previousWaterReading: safeNumber(dbRoom.previous_water_reading),
+  currentWaterReading: safeNumber(dbRoom.current_water_reading)
 });
 
-const mapRoomToDb = (room: Partial<Room>, ownerId: string) => ({
-  id: room.id,
-  house_id: room.houseId,
-  room_number: room.roomNumber,
-  rent_amount: room.rentAmount,
-  floor: room.floor,
-  previous_electricity_reading: room.previousElectricityReading,
-  current_electricity_reading: room.currentElectricityReading,
-  previous_water_reading: room.previousWaterReading,
-  current_water_reading: room.currentWaterReading,
-  owner_id: ownerId
-});
+const mapRoomToDb = (room: Partial<Room>, ownerId?: string) => {
+  const rs: any = {
+    id: room.id,
+    house_id: room.houseId,
+    room_number: room.roomNumber,
+    rent_amount: room.rentAmount,
+    floor: room.floor,
+    previous_electricity_reading: room.previousElectricityReading,
+    current_electricity_reading: room.currentElectricityReading,
+    previous_water_reading: room.previousWaterReading,
+    current_water_reading: room.currentWaterReading,
+  };
+  if (ownerId) rs.owner_id = ownerId;
+  return rs;
+};
+
+const roomKeyMap = {
+  id: 'id', houseId: 'house_id', roomNumber: 'room_number', rentAmount: 'rent_amount', floor: 'floor',
+  previousElectricityReading: 'previous_electricity_reading', currentElectricityReading: 'current_electricity_reading',
+  previousWaterReading: 'previous_water_reading', currentWaterReading: 'current_water_reading'
+};
+const mapRoomPartialToDb = (data: Partial<Room>) => partialDbMapper(data, roomKeyMap);
 
 const mapTenantFromDb = (dbTenant: any): Tenant => ({
   id: dbTenant.id,
@@ -135,59 +175,82 @@ const mapTenantFromDb = (dbTenant: any): Tenant => ({
   name: dbTenant.name,
   phone: dbTenant.phone || '',
   imageUrl: dbTenant.image_url,
+  documents: Array.isArray(dbTenant.documents) ? dbTenant.documents : [],
   roomIds: Array.isArray(dbTenant.room_ids) ? dbTenant.room_ids : [],
   rentMode: dbTenant.rent_mode || 'auto',
-  customRentAmount: dbTenant.custom_rent_amount ? Number(dbTenant.custom_rent_amount) : undefined,
+  customRentAmount: safeNumber(dbTenant.custom_rent_amount),
   startDate: dbTenant.start_date || '',
-  rentCycle: dbTenant.rent_cycle || 'monthly'
+  rentCycle: dbTenant.rent_cycle || 'monthly',
+  rentCollectionType: dbTenant.rent_collection_type || 'arrears'
 });
 
-const mapTenantToDb = (tenant: Partial<Tenant>, ownerId: string) => ({
-  id: tenant.id,
-  house_id: tenant.houseId,
-  name: tenant.name,
-  phone: tenant.phone,
-  image_url: tenant.imageUrl,
-  room_ids: tenant.roomIds,
-  rent_mode: tenant.rentMode,
-  custom_rent_amount: tenant.customRentAmount,
-  start_date: tenant.startDate,
-  rent_cycle: tenant.rentCycle,
-  owner_id: ownerId
-});
+const mapTenantToDb = (tenant: Partial<Tenant>, ownerId?: string) => {
+  const rs: any = {
+    id: tenant.id,
+    house_id: tenant.houseId,
+    name: tenant.name,
+    phone: tenant.phone,
+    image_url: tenant.imageUrl,
+    documents: tenant.documents || [],
+    room_ids: tenant.roomIds,
+    rent_mode: tenant.rentMode,
+    custom_rent_amount: tenant.customRentAmount,
+    start_date: tenant.startDate,
+    rent_cycle: tenant.rentCycle,
+    rent_collection_type: tenant.rentCollectionType
+  };
+  if (ownerId) rs.owner_id = ownerId;
+  return rs;
+};
+
+const tenantKeyMap = {
+  id: 'id', houseId: 'house_id', name: 'name', phone: 'phone', imageUrl: 'image_url', documents: 'documents',
+  roomIds: 'room_ids', rentMode: 'rent_mode', customRentAmount: 'custom_rent_amount', startDate: 'start_date', rentCycle: 'rent_cycle', rentCollectionType: 'rent_collection_type'
+};
+const mapTenantPartialToDb = (data: Partial<Tenant>) => partialDbMapper(data, tenantKeyMap);
 
 const mapPaymentFromDb = (p: any): Payment => ({
   id: p.id,
   houseId: p.house_id,
   tenantId: p.tenant_id,
   month: p.month,
-  amountDue: Number(p.amount_due || 0),
-  amountPaid: Number(p.amount_paid || 0),
+  amountDue: safeNumberDefault(p.amount_due, 0),
+  amountPaid: safeNumberDefault(p.amount_paid, 0),
   paymentDate: p.payment_date,
   status: p.status,
-  baseRent: p.base_rent ? Number(p.base_rent) : undefined,
-  electricityCharge: p.electricity_charge ? Number(p.electricity_charge) : undefined,
-  waterCharge: p.water_charge ? Number(p.water_charge) : undefined,
-  trashCharge: p.trash_charge ? Number(p.trash_charge) : undefined,
-  otherCharges: p.other_charges ? Number(p.other_charges) : undefined
+  baseRent: safeNumber(p.base_rent),
+  electricityCharge: safeNumber(p.electricity_charge),
+  waterCharge: safeNumber(p.water_charge),
+  trashCharge: safeNumber(p.trash_charge),
+  otherCharges: safeNumber(p.other_charges)
 });
 
-const mapPaymentToDb = (p: Partial<Payment>, ownerId: string) => ({
-  id: p.id,
-  house_id: p.houseId,
-  tenant_id: p.tenantId,
-  month: p.month,
-  amount_due: p.amountDue,
-  amount_paid: p.amountPaid,
-  payment_date: p.paymentDate,
-  status: p.status,
-  base_rent: p.baseRent,
-  electricity_charge: p.electricityCharge,
-  water_charge: p.waterCharge,
-  trash_charge: p.trashCharge,
-  other_charges: p.otherCharges,
-  owner_id: ownerId
-});
+const mapPaymentToDb = (p: Partial<Payment>, ownerId?: string) => {
+  const rs: any = {
+    id: p.id,
+    house_id: p.houseId,
+    tenant_id: p.tenantId,
+    month: p.month,
+    amount_due: p.amountDue,
+    amount_paid: p.amountPaid,
+    payment_date: p.paymentDate,
+    status: p.status,
+    base_rent: p.baseRent,
+    electricity_charge: p.electricityCharge,
+    water_charge: p.waterCharge,
+    trash_charge: p.trashCharge,
+    other_charges: p.otherCharges,
+  };
+  if (ownerId) rs.owner_id = ownerId;
+  return rs;
+};
+
+const paymentKeyMap = {
+  id: 'id', houseId: 'house_id', tenantId: 'tenant_id', month: 'month', amountDue: 'amount_due', amountPaid: 'amount_paid',
+  paymentDate: 'payment_date', status: 'status', baseRent: 'base_rent', electricityCharge: 'electricity_charge',
+  waterCharge: 'water_charge', trashCharge: 'trash_charge', otherCharges: 'other_charges'
+};
+const mapPaymentPartialToDb = (data: Partial<Payment>) => partialDbMapper(data, paymentKeyMap);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -375,7 +438,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Fetch houses first using a safe and simple select query
         const response = await supabase
           .from('houses')
-          .select('*');
+          .select('*')
+          .limit(100);
           
         let housesData = response.data;
         let housesError = response.error;
@@ -424,9 +488,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Fetch remaining tables using valid house_ids safely
         const [roomsResponse, tenantsResponse, paymentsResponse] = await Promise.all([
-          supabase.from('rooms').select('*').in('house_id', validHouseIds),
-          supabase.from('tenants').select('*').in('house_id', validHouseIds),
-          supabase.from('payments').select('*').in('house_id', validHouseIds)
+          supabase.from('rooms').select('*').in('house_id', validHouseIds).limit(1000),
+          supabase.from('tenants').select('*').in('house_id', validHouseIds).limit(1000),
+          supabase.from('payments').select('*').in('house_id', validHouseIds).order('payment_date', { ascending: false }).limit(2000)
         ]);
 
         if (!isSubscribed) return;
@@ -537,7 +601,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!houseToUpdate) return;
 
     if (user && !isSandboxMode) {
-      const dbData = sanitizeObject(mapHouseToDb({ ...houseToUpdate, ...data, id }, user.id, user.email || houseToUpdate.ownerEmail));
+      const dbData = sanitizeObject(mapHousePartialToDb(data));
       supabase.from('houses').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update house error:', error);
       });
@@ -609,7 +673,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!targetRoom || !houses.some(h => h.id === targetRoom.houseId)) return;
 
     if (user && !isSandboxMode) {
-      const dbData = sanitizeObject(mapRoomToDb({ ...rooms.find(r => r.id === id), ...data, id }, user.id));
+      const dbData = sanitizeObject(mapRoomPartialToDb(data));
       supabase.from('rooms').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update room error:', error);
       });
@@ -768,7 +832,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!targetTenant || !houses.some(h => h.id === targetTenant.houseId)) return;
 
     if (user && !isSandboxMode) {
-      const dbData = sanitizeObject(mapTenantToDb({ ...tenants.find(t => t.id === id), ...data, id }, user.id));
+      const dbData = sanitizeObject(mapTenantPartialToDb(data));
       supabase.from('tenants').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update tenant error:', error);
       });
@@ -821,7 +885,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!targetPayment || !houses.some(h => h.id === targetPayment.houseId)) return;
 
     if (user && !isSandboxMode) {
-      const dbData = sanitizeObject(mapPaymentToDb({ ...payments.find(p => p.id === id), ...data, id }, user.id));
+      const dbData = sanitizeObject(mapPaymentPartialToDb(data));
       supabase.from('payments').update(dbData).eq('id', id).then(({ error }) => {
         if (error) console.error('update payment error:', error);
       });

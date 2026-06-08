@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Home, UserPlus, DoorOpen, MoreVertical, Search } f
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
 import { ConfirmModal } from './ConfirmModal';
-import { Room, Tenant, RentCycle } from '../types';
+import { Room, Tenant, RentCycle, TenantDocument } from '../types';
 import { formatWithNepaliDate, getTodayDateStr, calculateProRatedAmount, getRentDueInfo } from '../lib/dateUtils';
 
 export function Occupancy() {
@@ -18,6 +18,8 @@ export function Occupancy() {
 
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'occupied' | 'vacant' | 'overdue'>('all');
+  const [rentCycleFilter, setRentCycleFilter] = useState<'all' | 'weekly' | 'monthly' | 'yearly'>('all');
 
   // State for editing room rent
   const [editingRoomRentId, setEditingRoomRentId] = useState<string | null>(null);
@@ -27,9 +29,11 @@ export function Occupancy() {
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [documents, setDocuments] = useState<TenantDocument[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState(activeHouseId);
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [rentMode, setRentMode] = useState<'auto' | 'manual'>('auto');
@@ -45,6 +49,9 @@ export function Occupancy() {
   const [meterElecCurr, setMeterElecCurr] = useState('');
   const [meterWaterPrev, setMeterWaterPrev] = useState('');
   const [meterWaterCurr, setMeterWaterCurr] = useState('');
+
+  // Tenant Ledger Modal State
+  const [ledgerTenant, setLedgerTenant] = useState<Tenant | null>(null);
 
   const openMeterModal = (room: Room) => {
     setMeterModalRoom(room);
@@ -106,6 +113,7 @@ export function Occupancy() {
       setName(tenant.name);
       setPhone(tenant.phone);
       setImageUrl(tenant.imageUrl || '');
+      setDocuments(tenant.documents || []);
       setSelectedHouseId(tenant.houseId);
       setSelectedRooms(tenant.roomIds);
       setRentMode(tenant.rentMode);
@@ -119,6 +127,7 @@ export function Occupancy() {
       setName('');
       setPhone('');
       setImageUrl('');
+      setDocuments([]);
       setSelectedHouseId(activeHouseId);
       setSelectedRooms(preSelectRoomId ? [preSelectRoomId] : []);
       setRentMode('auto');
@@ -129,6 +138,27 @@ export function Occupancy() {
       setDateOption('current');
     }
     setIsTenantModalOpen(true);
+  };
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newDoc: TenantDocument = {
+          id: Date.now().toString(),
+          name: file.name,
+          url: reader.result as string,
+          addedAt: new Date().toISOString()
+        };
+        setDocuments(prev => [...prev, newDoc]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeDocument = (id: string) => {
+    setDocuments(prev => prev.filter(doc => doc.id !== id));
   };
 
   const handleRoomToggle = (roomId: string) => {
@@ -151,6 +181,7 @@ export function Occupancy() {
       name,
       phone,
       imageUrl,
+      documents,
       roomIds: selectedRooms,
       rentMode,
       customRentAmount: rentMode === 'manual' ? Number(customRent) : undefined,
@@ -193,40 +224,110 @@ export function Occupancy() {
   
   const uniqueFloors = Array.from(floorsMap.keys()).sort();
 
+  // Analytics Calculations
+  const totalRoomsCount = houseRooms.length;
+  const occupiedRoomsCount = occupiedRoomIds.size;
+  const occupancyRate = totalRoomsCount > 0 ? Math.round((occupiedRoomsCount / totalRoomsCount) * 100) : 0;
+
+  const currentMonthStr = getTodayDateStr().substring(0, 7);
+  
+  let totalRentCollectedMonth = 0;
+  let totalPendingMonth = 0;
+
+  houseTenants.forEach(t => {
+    const pmt = payments.find(p => p.tenantId === t.id && p.month === currentMonthStr);
+    if (pmt) {
+      totalRentCollectedMonth += pmt.amountPaid;
+      totalPendingMonth += Math.max(0, pmt.amountDue - pmt.amountPaid);
+    } else {
+      const expected = getTenantTotalRent(t);
+      totalPendingMonth += expected;
+    }
+  });
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
-        <div>
-          <h3 className="font-bold text-slate-800 ml-1 sm:ml-2">Rooms & tenants Overview</h3>
-          <p className="text-[10px] sm:text-xs text-slate-500 ml-1 sm:ml-2 mt-1">Manage occupancy and assign tenants. For room management, see the Property Layout tab.</p>
-        </div>
-        <div className="flex gap-2 items-center flex-wrap md:flex-nowrap w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by room, name or phone..."
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white w-full transition-colors font-medium text-slate-700"
-            />
+      
+      {/* Aggregated Analytics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Occupancy Rate</span>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-bold text-slate-800">{occupancyRate}%</span>
+            <span className="text-sm font-medium text-slate-400 mb-1">({occupiedRoomsCount}/{totalRoomsCount} rooms)</span>
           </div>
-          <select 
-            value={floorFilter}
-            onChange={e => setFloorFilter(e.target.value)}
-            className="flex-1 md:flex-none p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 font-medium cursor-pointer"
-          >
-            <option value="all">All Floors</option>
-            {uniqueFloors.map(f => (
-              <option key={f} value={f}>{f}</option>
-            ))}
-          </select>
-          <button 
-            onClick={() => openTenantModal()}
-            className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-indigo-600 text-white px-3.5 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold cursor-pointer shrink-0"
-          >
-            <UserPlus className="w-4 h-4" /> Add Tenant
-          </button>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${occupancyRate}%` }}></div>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm flex flex-col">
+          <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Collected (This Month)</span>
+          <span className="text-2xl font-bold text-emerald-700">NPR {totalRentCollectedMonth.toLocaleString()}</span>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-amber-100 shadow-sm flex flex-col">
+          <span className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">Pending Defaults</span>
+          <span className="text-2xl font-bold text-amber-700">NPR {totalPendingMonth.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h3 className="font-bold text-slate-800 ml-1 sm:ml-2">Rooms & Tenants Overview</h3>
+            <p className="text-[10px] sm:text-xs text-slate-500 ml-1 sm:ml-2 mt-1">Manage occupancy and assign tenants. For room management, see the Property Layout tab.</p>
+          </div>
+          <div className="flex gap-2 items-center flex-wrap md:flex-nowrap w-full md:w-auto">
+            <button 
+              onClick={() => openTenantModal()}
+              className="flex-1 md:flex-none flex justify-center items-center gap-2 bg-indigo-600 text-white px-3.5 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold cursor-pointer shrink-0"
+            >
+              <UserPlus className="w-4 h-4" /> Add Tenant
+            </button>
+          </div>
+        </div>
+
+        {/* Global Search & Advanced Filters */}
+        <div className="flex flex-col md:flex-row gap-2 items-center w-full pt-3 border-t border-slate-100">
+            <div className="relative flex-1 w-full md:w-auto">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Global search by room, tenant name or phone..."
+                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white w-full transition-colors font-medium text-slate-700"
+              />
+            </div>
+            <select 
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as any)}
+              className="w-full md:w-auto p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 font-medium cursor-pointer"
+            >
+              <option value="all">All Status</option>
+              <option value="occupied">Occupied</option>
+              <option value="vacant">Vacant</option>
+              <option value="overdue">Payment Overdue</option>
+            </select>
+            <select 
+              value={rentCycleFilter}
+              onChange={e => setRentCycleFilter(e.target.value as any)}
+              className="w-full md:w-auto p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 font-medium cursor-pointer"
+            >
+              <option value="all">All Rent Cycles</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <select 
+              value={floorFilter}
+              onChange={e => setFloorFilter(e.target.value)}
+              className="w-full md:w-auto p-1.5 px-3 border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 font-medium cursor-pointer"
+            >
+              <option value="all">All Floors</option>
+              {uniqueFloors.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
         </div>
       </div>
 
@@ -247,7 +348,20 @@ export function Occupancy() {
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
               {(() => {
                 const filteredRooms = (floorsMap.get(floor) || []).filter(room => {
+                  const isOccupied = occupiedRoomIds.has(room.id);
                   const tenant = roomToTenantMap.get(room.id);
+                  const todayStr = getTodayDateStr();
+                  const dueInfo = tenant ? getRentDueInfo(tenant, payments, todayStr) : null;
+                  
+                  // Filter by Status
+                  if (statusFilter === 'occupied' && !isOccupied) return false;
+                  if (statusFilter === 'vacant' && isOccupied) return false;
+                  if (statusFilter === 'overdue' && !dueInfo?.isOverdue) return false;
+
+                  // Filter by Rent Cycle
+                  if (rentCycleFilter !== 'all' && tenant?.rentCycle !== rentCycleFilter) return false;
+
+                  // Text Search
                   return room.roomNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (tenant && (
                       tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -366,8 +480,9 @@ export function Occupancy() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button onClick={() => openTenantModal(tenant)} className="text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1 rounded transition-colors">Edit Tenant</button>
-                            <button onClick={() => handleTenantDelete(tenant.id)} className="text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 px-2 py-1 rounded transition-colors">Delete</button>
+                            <button onClick={() => setLedgerTenant(tenant)} className="text-[10px] font-bold text-sky-600 hover:text-sky-700 bg-sky-50 px-2 py-1.5 rounded transition-colors uppercase tracking-wide">History</button>
+                            <button onClick={() => openTenantModal(tenant)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1.5 rounded transition-colors uppercase tracking-wide">Edit</button>
+                            <button onClick={() => handleTenantDelete(tenant.id)} className="text-[10px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2 py-1.5 rounded transition-colors uppercase tracking-wide">Delete</button>
                           </div>
                         </div>
                       </div>
@@ -562,6 +677,40 @@ export function Occupancy() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
               <input required type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
             </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="block text-sm font-medium text-slate-700">Documents & IDs</label>
+              <button
+                type="button"
+                onClick={() => docInputRef.current?.click()}
+                className="text-xs text-indigo-600 font-bold hover:text-indigo-700"
+              >
+                + Add File
+              </button>
+            </div>
+            <input
+              type="file"
+              ref={docInputRef}
+              className="hidden"
+              onChange={handleDocumentUpload}
+            />
+            {documents.length > 0 ? (
+              <div className="space-y-2 max-h-32 overflow-y-auto w-full">
+                {documents.map(doc => (
+                  <div key={doc.id} className="flex justify-between items-center p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs text-slate-700 truncate max-w-[200px]" title={doc.name}>{doc.name}</span>
+                    <button type="button" onClick={() => removeDocument(doc.id)} className="text-rose-500 hover:text-rose-700">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500 p-2 text-center bg-slate-50 border border-slate-200 border-dashed rounded-lg">
+                No documents uploaded yet.
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Rent Collection Cycle Style</label>
@@ -763,6 +912,55 @@ export function Occupancy() {
             </div>
           </form>
         )}
+      </Modal>
+
+      <Modal isOpen={!!ledgerTenant} onClose={() => setLedgerTenant(null)} title={`Interactive Payment History: ${ledgerTenant?.name}`}>
+        {ledgerTenant && (() => {
+          const tenantPayments = payments.filter(p => p.tenantId === ledgerTenant.id).sort((a, b) => b.month.localeCompare(a.month));
+          return (
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto w-full">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm mb-4">
+                <p className="font-medium text-slate-800">Joined: <span className="font-mono">{formatWithNepaliDate(ledgerTenant.startDate)}</span></p>
+                <p className="font-medium text-slate-800 text-xs text-slate-500 mt-1">Rent Cycle: <span className="uppercase text-slate-700">{ledgerTenant.rentCycle}</span></p>
+              </div>
+
+              {tenantPayments.length > 0 ? (
+                <div className="space-y-3">
+                  {tenantPayments.map(payment => (
+                    <div key={payment.id} className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow transition-shadow">
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
+                         <span className="font-bold text-slate-800 font-mono text-sm">{formatWithNepaliDate(payment.month + "-01")}</span>
+                         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${payment.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : payment.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
+                           {payment.status}
+                         </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Total Billed:</span>
+                          <span className="font-mono font-semibold">NPR {payment.amountDue}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Collected:</span>
+                          <span className="font-mono font-semibold text-emerald-600">NPR {payment.amountPaid}</span>
+                        </div>
+                        {payment.status !== 'paid' && (
+                          <div className="col-span-2 flex justify-between pt-1 mt-1 border-t border-slate-100">
+                             <span className="text-slate-500 font-medium">Pending Arrears:</span>
+                             <span className="font-mono font-bold text-rose-600">NPR {payment.amountDue - payment.amountPaid}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  <p className="text-slate-400 font-medium">No payment interaction history found for this tenant yet.</p>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </Modal>
 
       <ConfirmModal

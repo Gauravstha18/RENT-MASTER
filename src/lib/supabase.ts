@@ -208,6 +208,8 @@ create table if not exists public.tenants (
     house_id text references public.houses(id) on delete cascade,
     name text not null,
     phone text,
+    image_url text,
+    documents jsonb default '[]'::jsonb,
     room_ids jsonb,
     rent_mode text not null,
     custom_rent_amount numeric,
@@ -215,6 +217,10 @@ create table if not exists public.tenants (
     rent_cycle text,
     owner_id uuid references auth.users(id) on delete cascade
 );
+
+alter table public.tenants add column if not exists image_url text;
+alter table public.tenants add column if not exists documents jsonb default '[]'::jsonb;
+alter table public.tenants add column if not exists rent_collection_type text;
 
 alter table public.tenants enable row level security;
 drop policy if exists "Allow select own tenants" on public.tenants;

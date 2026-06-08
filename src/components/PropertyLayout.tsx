@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Image as ImageIcon, DoorOpen, Plus, Edit2, Trash2, Info, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Building, Image as ImageIcon, DoorOpen, Plus, Edit2, Trash2, Info, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Modal } from './Modal';
 import { ConfirmModal } from './ConfirmModal';
@@ -237,7 +237,8 @@ export function PropertyLayout() {
     // Check if already a collaborator
     if (!currentCollaborators.some(c => c.email === email)) {
       updateHouse(currentHouse.id, { 
-        collaborators: [...currentCollaborators, { email, role: shareRole }] 
+        collaborators: [...currentCollaborators, { email, role: shareRole }],
+        sharedWithEmails: Array.from(new Set([...(currentHouse.sharedWithEmails || []), email]))
       });
     }
     
@@ -248,8 +249,10 @@ export function PropertyLayout() {
   const removeCollaborator = (emailToRemove: string) => {
     if (!currentHouse) return;
     const currentCollaborators = currentHouse.collaborators || [];
+    const currentShared = currentHouse.sharedWithEmails || [];
     updateHouse(currentHouse.id, {
-      collaborators: currentCollaborators.filter(c => c.email !== emailToRemove)
+      collaborators: currentCollaborators.filter(c => c.email !== emailToRemove),
+      sharedWithEmails: currentShared.filter(e => e !== emailToRemove)
     });
   };
 
@@ -719,18 +722,21 @@ export function PropertyLayout() {
             </button>
           </form>
 
-          {currentHouse.collaborators && currentHouse.collaborators.length > 0 && (
+          {currentHouse.collaborators && currentHouse.collaborators.length > 0 ? (
             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Current Collaborators</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Current Collaborators</h4>
               <ul className="space-y-2">
                 {currentHouse.collaborators.map(c => (
-                  <li key={c.email} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg bg-slate-50">
-                    <span className="text-sm font-semibold text-slate-800">{c.email}</span>
+                  <li key={c.email} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg bg-slate-50 hover:bg-white transition-colors shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-800">{c.email}</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 mt-0.5">{c.role === 'write' ? 'Full Access' : 'View Only'}</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <select
                         value={c.role}
                         onChange={e => updateCollaboratorRole(c.email, e.target.value as 'read' | 'write')}
-                        className="text-xs p-1 bg-white border border-slate-200 rounded text-slate-600 outline-none cursor-pointer"
+                        className="text-xs p-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 outline-none cursor-pointer hover:border-slate-300 font-medium"
                       >
                         <option value="read">View Only</option>
                         <option value="write">Can Edit</option>
@@ -738,7 +744,7 @@ export function PropertyLayout() {
                       <button 
                         type="button" 
                         onClick={() => removeCollaborator(c.email)}
-                        className="text-slate-400 hover:text-rose-500 transition-colors"
+                        className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
                         title="Remove access"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -747,6 +753,14 @@ export function PropertyLayout() {
                   </li>
                 ))}
               </ul>
+            </div>
+          ) : (
+            <div className="mt-4 pt-6 border-t border-slate-100 text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-50 rounded-full mb-3">
+                <Users className="w-5 h-5 text-slate-400" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">No collaborators yet</p>
+              <p className="text-xs text-slate-500 mt-1">Share this property to allow others to manage it with you.</p>
             </div>
           )}
         </div>

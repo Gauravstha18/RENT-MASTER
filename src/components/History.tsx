@@ -18,11 +18,12 @@ export function History() {
   const [confirmDeleteItemId, setConfirmDeleteItemId] = useState<string | null>(null);
   
   const deletedHouses = houses.filter(h => h.isDeleted);
-  const deletedFloors = archivedItems.filter(item => item.type === 'floor');
-  const deletedRooms = archivedItems.filter(item => item.type === 'room');
+  const userArchivedItems = archivedItems.filter(item => houses.some(h => h.id === item.houseId));
+  const deletedFloors = userArchivedItems.filter(item => item.type === 'floor');
+  const deletedRooms = userArchivedItems.filter(item => item.type === 'room');
   
   const houseToDelete = houses.find(h => h.id === confirmDeleteHouseId);
-  const itemToDelete = archivedItems.find(i => i.id === confirmDeleteItemId);
+  const itemToDelete = userArchivedItems.find(i => i.id === confirmDeleteItemId);
 
   const getRemainingDays = (deletedAtStr: string) => {
     const deletedAt = new Date(deletedAtStr).getTime();
