@@ -235,8 +235,8 @@ function AppContent() {
           <div className="flex-1">
             <h3 className="text-sm font-bold text-rose-900">Database Schema Update Required</h3>
             <p className="text-xs text-rose-700 mt-1 leading-relaxed">
-              Property sharing features depend on new database columns. Please run the provided SQL setup script in your Supabase SQL Editor. 
-              <br/><span className="font-semibold">Shared properties will not load correctly until this is completed.</span>
+              New features depend on updated database columns. Please copy and run the provided SQL setup script in your Supabase SQL Editor. 
+              <br/><span className="font-semibold">Certain data writes or reads will fail or disappear until this is completed.</span>
             </p>
             <button
               onClick={() => {

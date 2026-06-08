@@ -435,7 +435,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         setIsSandboxMode(false);
 
-        // Fetch houses first using a safe and simple select query
+        // Schema Probe: Check if recent columns were added to the DB
+        // If not, trigger DB Migration UI.
+        const [housesProbe, tenantsProbe, paymentsProbe] = await Promise.all([
+          supabase.from('houses').select('owner_email, collaborators').limit(1),
+          supabase.from('tenants').select('rent_collection_type').limit(1),
+          supabase.from('payments').select('base_rent').limit(1)
+        ]);
+
+        const failedProbe = [housesProbe.error, tenantsProbe.error, paymentsProbe.error].find(e => e && (e.code === 'PGRST116' || e.code === 'PGRST204' || e.message.includes('column') || e.message.includes('relation')));
+
+        if (failedProbe) {
+          console.warn('Schema probe failed (missing tables or new columns). Triggering DB Migration UI.', failedProbe);
+          setRequiresDbMigration(true);
+          setHouses([]);
+          setRooms([]);
+          setTenants([]);
+          setPayments([]);
+          setActiveHouseId(null);
+          return;
+        }
+
+        // Fetch houses safely
         const response = await supabase
           .from('houses')
           .select('*')
@@ -445,17 +466,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         let housesError = response.error;
 
         if (housesError) {
-          // If query returns a code indicating schema is missing, set requiresDbMigration and return cleanly
-          if (housesError.code === 'PGRST116' || housesError.message.includes('relation "public.houses" does not exist') || housesError.code === '42P01' || housesError.code === '42501') {
-            console.warn('Houses table missing or inaccessible in Supabase. Triggering DB Migration UI.');
-            setRequiresDbMigration(true);
-            setHouses([]);
-            setRooms([]);
-            setTenants([]);
-            setPayments([]);
-            setActiveHouseId(null);
-            return;
-          }
+          console.error('Failed to fetch houses:', housesError);
           throw housesError;
         }
 
