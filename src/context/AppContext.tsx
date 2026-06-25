@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { House, Room, Tenant, Payment, ViewState, ArchivedItem } from '../types';
 import { mockHouses, mockRooms, mockTenants, mockPayments } from '../lib/mockData';
 import { supabase, credentials } from '../lib/supabase';
-import { sanitizeObject, countAndValidateRateLimit } from '../lib/security';
+import { sanitizeObject, countAndValidateRateLimit, safeLocalStorage } from '../lib/security';
 
 export interface AuthUser {
   id: string;
@@ -36,8 +36,10 @@ interface AppContextType {
   // Global View and Actions
   currentView: ViewState;
   setCurrentView: (view: ViewState) => void;
-  globalAction: 'onboard' | 'payment' | 'room' | 'meters' | null;
-  setGlobalAction: (action: 'onboard' | 'payment' | 'room' | 'meters' | null) => void;
+  globalAction: 'onboard' | 'payment' | 'room' | 'meters' | 'add-property' | null;
+  setGlobalAction: (action: 'onboard' | 'payment' | 'room' | 'meters' | 'add-property' | null) => void;
+  searchTargetRoomId: string | null;
+  setSearchTargetRoomId: (id: string | null) => void;
   
   // Storage operations
   addHouse: (house: Omit<House, 'id'>) => string;
@@ -176,6 +178,7 @@ const mapTenantFromDb = (dbTenant: any): Tenant => ({
   phone: dbTenant.phone || '',
   imageUrl: dbTenant.image_url,
   documents: Array.isArray(dbTenant.documents) ? dbTenant.documents : [],
+  notes: dbTenant.notes || '',
   roomIds: Array.isArray(dbTenant.room_ids) ? dbTenant.room_ids : [],
   rentMode: dbTenant.rent_mode || 'auto',
   customRentAmount: safeNumber(dbTenant.custom_rent_amount),
@@ -192,6 +195,7 @@ const mapTenantToDb = (tenant: Partial<Tenant>, ownerId?: string) => {
     phone: tenant.phone === undefined ? null : tenant.phone,
     image_url: tenant.imageUrl === undefined ? null : tenant.imageUrl,
     documents: tenant.documents || [],
+    notes: tenant.notes === undefined ? null : tenant.notes,
     room_ids: tenant.roomIds,
     rent_mode: tenant.rentMode,
     custom_rent_amount: tenant.customRentAmount === undefined ? null : tenant.customRentAmount,
@@ -204,7 +208,7 @@ const mapTenantToDb = (tenant: Partial<Tenant>, ownerId?: string) => {
 };
 
 const tenantKeyMap = {
-  id: 'id', houseId: 'house_id', name: 'name', phone: 'phone', imageUrl: 'image_url', documents: 'documents',
+  id: 'id', houseId: 'house_id', name: 'name', phone: 'phone', imageUrl: 'image_url', documents: 'documents', notes: 'notes',
   roomIds: 'room_ids', rentMode: 'rent_mode', customRentAmount: 'custom_rent_amount', startDate: 'start_date', rentCycle: 'rent_cycle', rentCollectionType: 'rent_collection_type'
 };
 const mapTenantPartialToDb = (data: Partial<Tenant>) => partialDbMapper(data, tenantKeyMap);
@@ -254,7 +258,8 @@ const mapPaymentPartialToDb = (data: Partial<Payment>) => partialDbMapper(data, 
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
-  const [globalAction, setGlobalAction] = useState<'onboard' | 'payment' | 'room' | 'meters' | null>(null);
+  const [globalAction, setGlobalAction] = useState<'onboard' | 'payment' | 'room' | 'meters' | 'add-property' | null>(null);
+  const [searchTargetRoomId, setSearchTargetRoomId] = useState<string | null>(null);
 
   const [houses, setHouses] = useState<House[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -266,7 +271,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Archived Items state
   const [archivedItems, setArchivedItems] = useState<ArchivedItem[]>(() => {
     try {
-      const saved = localStorage.getItem('PM_ARCHIVED_ROOMS_FLOORS');
+      const saved = safeLocalStorage.getItem('PM_ARCHIVED_ROOMS_FLOORS');
       if (saved) {
         const parsed = JSON.parse(saved) as ArchivedItem[];
         const fifteenDaysAgo = new Date().getTime() - 15 * 24 * 60 * 60 * 1000;
@@ -279,7 +284,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   useEffect(() => {
-    localStorage.setItem('PM_ARCHIVED_ROOMS_FLOORS', JSON.stringify(archivedItems));
+    try {
+      safeLocalStorage.setItem('PM_ARCHIVED_ROOMS_FLOORS', JSON.stringify(archivedItems));
+    } catch (e) {
+      // Ignored
+    }
   }, [archivedItems]);
 
   // Authenticated state
@@ -365,7 +374,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Auth monitoring listener
   useEffect(() => {
-    const savedSandbox = localStorage.getItem('PM_VIRTUAL_SANDBOX_USER');
+    const savedSandbox = safeLocalStorage.getItem('PM_VIRTUAL_SANDBOX_USER');
     if (savedSandbox) {
       try {
         const sandboxUser = JSON.parse(savedSandbox);
@@ -374,12 +383,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setLoadingUser(false);
         return;
       } catch (e) {
-        localStorage.removeItem('PM_VIRTUAL_SANDBOX_USER');
+        safeLocalStorage.removeItem('PM_VIRTUAL_SANDBOX_USER');
       }
     }
 
+    if (!credentials.isConfigured) {
+      setUser(null);
+      setLoadingUser(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (localStorage.getItem('PM_VIRTUAL_SANDBOX_USER')) return;
+      if (safeLocalStorage.getItem('PM_VIRTUAL_SANDBOX_USER')) return;
       if (session?.user) {
         setUser({
           id: session.user.id,
@@ -392,14 +407,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setLoadingUser(false);
     }).catch(() => {
       // Handle fail-to-fetch elegantly during session load
-      if (!localStorage.getItem('PM_VIRTUAL_SANDBOX_USER')) {
+      if (!safeLocalStorage.getItem('PM_VIRTUAL_SANDBOX_USER')) {
         setUser(null);
       }
       setLoadingUser(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (localStorage.getItem('PM_VIRTUAL_SANDBOX_USER')) return;
+      if (safeLocalStorage.getItem('PM_VIRTUAL_SANDBOX_USER')) return;
       if (session?.user) {
         setUser({
           id: session.user.id,
@@ -563,14 +578,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       displayName: 'Demo Landlord',
       email: 'sandbox@propertymanager.local'
     };
-    localStorage.setItem('PM_VIRTUAL_SANDBOX_USER', JSON.stringify(sandboxUser));
+    safeLocalStorage.setItem('PM_VIRTUAL_SANDBOX_USER', JSON.stringify(sandboxUser));
     setUser(sandboxUser);
     setIsSandboxMode(true);
     seedLocalMockData();
   };
 
   const logout = () => {
-    localStorage.removeItem('PM_VIRTUAL_SANDBOX_USER');
+    safeLocalStorage.removeItem('PM_VIRTUAL_SANDBOX_USER');
     supabase.auth.signOut().then(() => {
       setUser(null);
     }).catch(() => {
@@ -714,7 +729,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       supabase.from('rooms').delete().eq('id', id).then(() => {});
       // Remove room id references inside tenant documents
       tenants.forEach(t => {
-        if (t.roomIds.includes(id)) {
+        if (t.roomIds?.includes(id)) {
           const nextRoomIds = t.roomIds.filter(r => r !== id);
           supabase.from('tenants').update({ room_ids: nextRoomIds }).eq('id', t.id).then(() => {});
         }
@@ -907,7 +922,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const getTenantTotalRent = (tenant: Tenant): number => {
     if (tenant.rentMode === 'manual') return tenant.customRentAmount || 0;
-    return tenant.roomIds.reduce((sum, roomId) => {
+    return (tenant.roomIds || []).reduce((sum, roomId) => {
       const room = rooms.find(r => r.id === roomId);
       return sum + (room?.rentAmount || 0);
     }, 0);
@@ -920,6 +935,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       user, loadingUser, logout, loginAsSandbox, isSandboxMode,
       requiresDbMigration, setRequiresDbMigration,
       currentView, setCurrentView, globalAction, setGlobalAction,
+      searchTargetRoomId, setSearchTargetRoomId,
       addHouse, updateHouse, deleteHouse, restoreHouse, hardDeleteHouse,
       addRoom, updateRoom, deleteRoom,
       addTenant, updateTenant, deleteTenant,

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { secureStorage } from './security';
+import { secureStorage, safeLocalStorage } from './security';
 
 // --- HARDCODED SUPABASE CREDENTIALS ---
 // Paste your real Supabase project credentials below to embed them directly.
@@ -42,8 +42,8 @@ const getSupabaseCredentials = () => {
   }
 
   // Use compile-time fallback and fallback reading from un-obfuscated items if obfuscated not exist yet
-  let localUrl = (secureStorage.getItem('PROPS_SUPABASE_URL') || localStorage.getItem('PROPS_SUPABASE_URL') || '').trim();
-  let localKey = (secureStorage.getItem('PROPS_SUPABASE_ANON_KEY') || localStorage.getItem('PROPS_SUPABASE_ANON_KEY') || '').trim();
+  let localUrl = (secureStorage.getItem('PROPS_SUPABASE_URL') || safeLocalStorage.getItem('PROPS_SUPABASE_URL') || '').trim();
+  let localKey = (secureStorage.getItem('PROPS_SUPABASE_ANON_KEY') || safeLocalStorage.getItem('PROPS_SUPABASE_ANON_KEY') || '').trim();
 
   if (localUrl.startsWith('"') && localUrl.endsWith('"')) {
     localUrl = localUrl.substring(1, localUrl.length - 1).trim();
@@ -92,9 +92,10 @@ export const supabase = createClient(
   credentials.key || defaultKey,
   {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
+      persistSession: credentials.isConfigured,
+      autoRefreshToken: credentials.isConfigured,
+      detectSessionInUrl: credentials.isConfigured,
+      storage: safeLocalStorage
     }
   }
 );
@@ -213,17 +214,20 @@ create table if not exists public.tenants (
     phone text,
     image_url text,
     documents jsonb default '[]'::jsonb,
+    notes text,
     room_ids jsonb,
     rent_mode text not null,
     custom_rent_amount numeric,
     start_date text,
     rent_cycle text,
+    rent_collection_type text,
     owner_id uuid references auth.users(id) on delete cascade
 );
 
 alter table public.tenants add column if not exists image_url text;
 alter table public.tenants add column if not exists documents jsonb default '[]'::jsonb;
 alter table public.tenants add column if not exists rent_collection_type text;
+alter table public.tenants add column if not exists notes text;
 
 alter table public.tenants enable row level security;
 drop policy if exists "Allow select own tenants" on public.tenants;

@@ -150,25 +150,56 @@ export function deobfuscateText(obfuscated: string): string {
   }
 }
 
+class MemoryStorage {
+  private store: Record<string, string> = {};
+  get length(): number { return Object.keys(this.store).length; }
+  clear(): void { this.store = {}; }
+  getItem(key: string): string | null { return this.store[key] ?? null; }
+  key(index: number): string | null { return Object.keys(this.store)[index] ?? null; }
+  removeItem(key: string): void { delete this.store[key]; }
+  setItem(key: string, value: string): void { this.store[key] = String(value); }
+}
+
+let localStoreToUse: any = null;
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStoreToUse = window.localStorage;
+  }
+} catch (e) {
+  // Ignored
+}
+if (!localStoreToUse) {
+  localStoreToUse = new MemoryStorage();
+}
+
+export const safeLocalStorage = localStoreToUse;
+
 /**
  * Secure local storage wrappers that automatically obfuscates sensitive credentials
  */
-const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
-
 export const secureStorage = {
   getItem(key: string): string | null {
-    if (!isBrowser) return null;
-    const rawVal = localStorage.getItem(key);
-    if (!rawVal) return null;
-    return deobfuscateText(rawVal);
+    try {
+      const rawVal = safeLocalStorage.getItem(key);
+      if (!rawVal) return null;
+      return deobfuscateText(rawVal);
+    } catch {
+      return null;
+    }
   },
   setItem(key: string, value: string): void {
-    if (!isBrowser) return;
-    const obfuscated = obfuscateText(value);
-    localStorage.setItem(key, obfuscated);
+    try {
+      const obfuscated = obfuscateText(value);
+      safeLocalStorage.setItem(key, obfuscated);
+    } catch {
+      // Ignored
+    }
   },
   removeItem(key: string): void {
-    if (!isBrowser) return;
-    localStorage.removeItem(key);
+    try {
+      safeLocalStorage.removeItem(key);
+    } catch {
+      // Ignored
+    }
   }
 };

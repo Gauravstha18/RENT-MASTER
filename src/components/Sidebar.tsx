@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Users, DoorOpen, CreditCard, Building, Plus, LogOut, Archive } from 'lucide-react';
+import { Home, Users, DoorOpen, CreditCard, Building, Plus, LogOut, Archive, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { ViewState } from '../types';
 import { Modal } from './Modal';
@@ -8,9 +8,10 @@ import { ConfirmModal } from './ConfirmModal';
 interface SidebarProps {
   currentView: ViewState;
   setView: (view: ViewState) => void;
+  onClose?: () => void;
 }
 
-export function Sidebar({ currentView, setView }: SidebarProps) {
+export function Sidebar({ currentView, setView, onClose }: SidebarProps) {
   const { houses, activeHouseId, setActiveHouseId, addHouse, addRoom, rooms, tenants, user, logout } = useAppContext();
   const [isAddHouseOpen, setIsAddHouseOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -85,50 +86,61 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 bg-slate-900 flex flex-col border-r border-slate-800 shrink-0 h-screen">
-      <div className="p-6 border-b border-slate-800">
+    <aside className="w-64 bg-zinc-900 flex flex-col border-r border-zinc-800 shrink-0 h-screen">
+      <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-500 rounded flex items-center justify-center text-white font-bold">RM</div>
+          <div className="w-8 h-8 bg-teal-500 rounded flex items-center justify-center text-white font-bold">RM</div>
           <h1 className="text-white font-semibold text-lg tracking-tight">RentMaster</h1>
         </div>
+        {onClose && (
+          <button onClick={onClose} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors md:hidden block">
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* House Switcher Section */}
-      <div className="px-4 py-6 overflow-y-auto max-h-64 border-b border-slate-800">
-        <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3 block px-2">Your Properties</label>
+      <div className="px-4 py-6 overflow-y-auto max-h-64 border-b border-zinc-800">
+        <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3 block px-2">Your Properties</label>
         <div className="space-y-1">
           <button 
-            onClick={() => setActiveHouseId('all')}
+            onClick={() => {
+              setActiveHouseId('all');
+              if (onClose) onClose();
+            }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
               activeHouseId === 'all'
-                ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
-                : 'text-slate-400 hover:bg-slate-800 border border-transparent'
+                ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30' 
+                : 'text-zinc-500 hover:bg-zinc-800 border border-transparent'
             }`}
           >
             <Home className="w-4 h-4 shrink-0" />
             <span className="text-sm font-medium text-left flex-1 truncate">All Properties</span>
           </button>
           
-          <div className="h-px bg-slate-800 my-2 shadow-sm"></div>
+          <div className="h-px bg-zinc-800 my-2 shadow-sm"></div>
 
           {activeHouses.map(house => {
             const houseRooms = rooms.filter(r => r.houseId === house.id);
             const totalRooms = houseRooms.length;
-            const occupiedRooms = houseRooms.filter(r => tenants.some(t => t.roomIds.includes(r.id))).length;
+            const occupiedRooms = houseRooms.filter(r => tenants.some(t => t.roomIds?.includes(r.id))).length;
             const emptyRooms = totalRooms - occupiedRooms;
 
             return (
             <button 
               key={house.id}
-              onClick={() => setActiveHouseId(house.id)}
+              onClick={() => {
+                setActiveHouseId(house.id);
+                if (onClose) onClose();
+              }}
               className={`w-full flex items-start gap-3 px-3 py-2 rounded-md transition-colors ${
                 activeHouseId === house.id 
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
-                  : 'text-slate-400 hover:bg-slate-800 border border-transparent'
+                  ? 'bg-teal-600/20 text-teal-400 border border-teal-500/30' 
+                  : 'text-zinc-500 hover:bg-zinc-800 border border-transparent'
               }`}
             >
               <div className="flex-1 flex flex-col justify-center items-start text-left truncate overflow-hidden pr-2">
-                <span className={`text-sm font-medium flex items-center gap-2 ${activeHouseId === house.id ? 'text-indigo-400' : 'text-slate-300'}`}>
+                <span className={`text-sm font-medium flex items-center gap-2 ${activeHouseId === house.id ? 'text-teal-400' : 'text-zinc-300'}`}>
                   {house.name}
                 </span>
                 {house.ownerEmail && user?.email && house.ownerEmail.toLowerCase().trim() !== user.email.toLowerCase().trim() && house.ownerId !== user.id && (
@@ -137,16 +149,16 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
                   </span>
                 )}
                 <span className="text-[10px] mt-0.5 mt-1 block truncate w-full">
-                  <span className="text-white font-bold">{totalRooms}</span> <span className="opacity-70">Rms</span> · <span className="text-emerald-400 font-bold">{occupiedRooms}</span> <span className="text-emerald-400/70">F</span> / <span className="text-rose-400 font-bold">{emptyRooms}</span> <span className="text-rose-400/70">E</span>
+                  <span className="text-white font-bold">{totalRooms}</span> <span className="opacity-70">Rms</span> · <span className="text-emerald-400 font-bold">{occupiedRooms}</span> <span className="text-emerald-400/70">F</span> / <span className="text-red-400 font-bold">{emptyRooms}</span> <span className="text-red-400/70">E</span>
                 </span>
               </div>
-              {activeHouseId === house.id && <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold shrink-0 mt-0.5">Active</span>}
+              {activeHouseId === house.id && <span className="text-[10px] bg-teal-500/30 text-teal-300 px-1.5 py-0.5 rounded uppercase font-bold shrink-0 mt-0.5">Active</span>}
             </button>
             )
           })}
           <button 
             onClick={() => setIsAddHouseOpen(true)}
-            className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-slate-800 rounded-md border border-dashed border-slate-700 mt-2"
+            className="w-full flex items-center gap-3 px-3 py-2 text-zinc-500 hover:bg-zinc-800 rounded-md border border-dashed border-zinc-700 mt-2"
           >
             <span className="text-xs font-medium">+ Add New Property</span>
           </button>
@@ -156,16 +168,18 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
       {/* Main Navigation */}
       {activeHouseId !== 'all' ? (
         <nav className="px-4 flex-1">
-          <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3 block px-2">Management</label>
+          <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-3 block px-2">Management</label>
           <ul className="space-y-1">
             {menuItems.map((item) => (
               <li key={item.id}>
                 <button
-                  onClick={() => setView(item.id as ViewState)}
+                  onClick={() => {
+                    setView(item.id as ViewState);
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                     currentView === item.id 
-                      ? 'bg-slate-800 text-white' 
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-zinc-800 text-white' 
+                      : 'text-zinc-500 hover:text-white'
                   }`}
                 >
                   <item.icon className="w-5 h-5" />
@@ -179,20 +193,20 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
         <div className="flex-1" style={{ height: '310.667px' }}></div>
       )}
 
-      <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+      <div className="p-4 border-t border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs text-white font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center text-xs text-white font-bold shrink-0">
             {user?.displayName ? user.displayName.substring(0, 2).toUpperCase() : 'US'}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white font-bold truncate">{user?.displayName || 'User'}</p>
-            <p className="text-[10px] text-slate-500 font-mono truncate">@{user?.displayName?.toLowerCase() || 'user'}</p>
+            <p className="text-[10px] text-zinc-500 font-mono truncate">@{user?.displayName?.toLowerCase() || 'user'}</p>
           </div>
         </div>
         <button 
           onClick={() => setIsLogoutModalOpen(true)} 
           title="Sign Out" 
-          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+          className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors shrink-0"
         >
           <LogOut className="w-4 h-4" />
         </button>
@@ -216,7 +230,7 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
               type="text" 
               value={newHouseName}
               onChange={e => setNewHouseName(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none"
               placeholder="e.g. Sunrise Villa"
             />
           </div>
@@ -226,7 +240,7 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
               type="text" 
               value={newHouseAddress}
               onChange={e => setNewHouseAddress(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none"
               placeholder="e.g. 123 Main St"
             />
           </div>
@@ -238,7 +252,7 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
                 value={numberOfRooms}
                 onChange={e => setNumberOfRooms(e.target.value)}
                 min="0"
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none"
                 placeholder="e.g. 10"
               />
             </div>
@@ -249,15 +263,15 @@ export function Sidebar({ currentView, setView }: SidebarProps) {
                 value={numberOfFloors}
                 onChange={e => setNumberOfFloors(e.target.value)}
                 min="0"
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none"
                 placeholder="e.g. 2"
               />
             </div>
           </div>
-          <p className="text-[10px] text-slate-500 mt-1">Leave empty to add rooms manually later.</p>
+          <p className="text-[10px] text-zinc-500 mt-1">Leave empty to add rooms manually later.</p>
           <div className="pt-4 flex justify-end gap-2">
             <button type="button" onClick={() => setIsAddHouseOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Property</button>
+            <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">Save Property</button>
           </div>
         </form>
       </Modal>

@@ -1,13 +1,19 @@
-import NepaliDate from 'nepali-date-converter';
+import NepaliDateRaw from 'nepali-date-converter';
 import { Tenant, RentCycle, Payment } from '../types';
 
 export function getNepaliDateStr(adDateStr: string): string {
   try {
     const adDate = new Date(adDateStr);
     if (isNaN(adDate.getTime())) return '';
-    const nd = new NepaliDate(adDate);
-    return nd.format('YYYY-MM-DD');
+    
+    const NepaliDateConstructor: any = (NepaliDateRaw as any).default || NepaliDateRaw;
+    if (typeof NepaliDateConstructor === 'function') {
+      const nd = new NepaliDateConstructor(adDate);
+      return nd.format('YYYY-MM-DD');
+    }
+    return '';
   } catch (err) {
+    console.warn('[DateUtils] Nepali Date conversion error:', err);
     return '';
   }
 }

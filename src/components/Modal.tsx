@@ -34,7 +34,7 @@ export function Modal({ isOpen, onClose, title, icon: Icon = Building2, children
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <Icon className="w-5 h-5 text-indigo-600" />
+            <Icon className="w-5 h-5 text-teal-600" />
             {title}
           </h2>
           <button

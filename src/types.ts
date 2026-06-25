@@ -50,6 +50,7 @@ export interface Tenant {
   phone: string;
   imageUrl?: string;
   documents?: TenantDocument[];
+  notes?: string;
   roomIds: string[];
   rentMode: 'auto' | 'manual';
   customRentAmount?: number;
