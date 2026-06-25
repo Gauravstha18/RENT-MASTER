@@ -44,6 +44,63 @@ export function GlobalDashboard() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 lg:space-y-8 animate-in fade-in duration-300 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">Global Overview</h2>
+          <p className="text-zinc-500 mt-1">Summary across all your properties</p>
+        </div>
+        <button 
+          onClick={() => useAppContext().setGlobalAction('add-property')}
+          className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+        >
+          <Building2 className="w-4 h-4" />
+          Add Property
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div 
+          onClick={() => setViewList('properties')}
+          className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 bg-teal-50 text-teal-600 rounded-xl group-hover:scale-110 transition-transform"><Building2 className="w-5 h-5" /></div>
+            <h3 className="font-semibold text-zinc-700">Total Properties</h3>
+          </div>
+          <div className="text-3xl font-bold text-zinc-900">{totalProperties}</div>
+        </div>
+
+        <div 
+          onClick={() => setViewList('rooms')}
+          className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform"><FileText className="w-5 h-5" /></div>
+            <h3 className="font-semibold text-zinc-700">Total Rooms</h3>
+          </div>
+          <div className="text-3xl font-bold text-zinc-900">{totalRoomsCount}</div>
+        </div>
+
+        <div 
+          onClick={() => setViewList('tenants')}
+          className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform"><Users className="w-5 h-5" /></div>
+            <h3 className="font-semibold text-zinc-700">Total Tenants</h3>
+          </div>
+          <div className="text-3xl font-bold text-zinc-900">{totalTenantsCount}</div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl"><UserCheck className="w-5 h-5" /></div>
+            <h3 className="font-semibold text-zinc-700">Rent Collected (This Month)</h3>
+          </div>
+          <div className="text-2xl font-bold text-zinc-900 font-mono">NPR {collectedRent.toLocaleString()}</div>
+        </div>
+      </div>
+
       <Modal isOpen={!!selectedTenantUser} onClose={() => setSelectedTenantUser(null)} title="Tenant Information">
         {selectedTenantUser && (() => {
           const property = houses.find(h => h.id === selectedTenantUser.houseId);
